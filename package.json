@@ -1,0 +1,22 @@
+{
+  "name": "quoridor",
+  "version": "1.0.0",
+  "description": "Combinatorial game theory practice",
+  "main": "quoridor.html",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sutkh/quoridor.git"
+  },
+  "keywords": [
+    "quoridor"
+  ],
+  "author": "Ben Hallion",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sutkh/quoridor/issues"
+  },
+  "homepage": "https://github.com/sutkh/quoridor#readme"
+}
