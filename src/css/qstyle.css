@@ -1,0 +1,11 @@
+#board {
+    position: absolute;
+    left: 0;
+}
+#hud {
+    position: absolute;
+    right: 0;
+}
+body {
+    background: black;
+}
