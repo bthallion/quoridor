@@ -9,16 +9,15 @@ var players = (function () {
         player2: undefined
     };
 
+    function getTokens() {
+        return [my.player1.getToken(), my.player2.getToken()];
+    }
+
     //Basic player constructor
     function Player(clr, pos) {
         var my = {
-            position: pos,
             currentPlayer: false,
             token: new Token(pos, clr, this)
-        };
-
-        this.getPosition = function getPosition() {
-            return my.position;
         };
 
         this.currentPlayer = function currentPlayer() {
@@ -46,7 +45,7 @@ var players = (function () {
                 color: clr,
                 player: plr
             },
-            celWid   = board.getCellWidth();
+            celWid = board.getCellWidth();
 
         my.x      = (my.position[0] + 0.5) * celWid + (my.position[0] + 1) * board.getBorderWidth();
         my.y      = (my.position[1] + 0.5) * celWid + (my.position[1] + 1) * board.getBorderWidth();
@@ -127,8 +126,16 @@ var players = (function () {
         getPlayer2: function getPlayer2() {
             return my.player2;
         },
-        getTokens: function getTokens() {
-            return [my.player1.getToken(), my.player2.getToken()];
+        getTokens: getTokens,
+        getTokenAtPositionIndex: function getTokenAtPositionIndex(pos) {
+            var tokens = getTokens(),
+                i;
+            for (i = 0; i < tokens.length; i++) {
+                if (pos === tokens[i].getPositionIndex()) {
+                    return tokens[i];
+                }
+            }
+            return undefined;
         }
     };
 

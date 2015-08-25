@@ -330,6 +330,14 @@ var board = (function () {
                     }
                 }
             }
+
+            //Check for adjacent player
+            for (i = 0; i < moves.length; i++) {
+                if (players.getTokenAtPositionIndex(moves[i]) &&
+                    players.getTokenAtPositionIndex(posIndex) !== players.getTokenAtPositionIndex(moves[i])) {
+                    
+                }
+            }
             console.log('moves '+moves);
             return moves;
         }
@@ -337,7 +345,7 @@ var board = (function () {
 
 })();
 /**
- * Created by Ben on 8/16/2015.
+ * Created by Ben on 8/18/2015.
  */
 (function () {
     'use strict';
@@ -421,16 +429,15 @@ var players = (function () {
         player2: undefined
     };
 
+    function getTokens() {
+        return [my.player1.getToken(), my.player2.getToken()];
+    }
+
     //Basic player constructor
     function Player(clr, pos) {
         var my = {
-            position: pos,
             currentPlayer: false,
             token: new Token(pos, clr, this)
-        };
-
-        this.getPosition = function getPosition() {
-            return my.position;
         };
 
         this.currentPlayer = function currentPlayer() {
@@ -539,8 +546,16 @@ var players = (function () {
         getPlayer2: function getPlayer2() {
             return my.player2;
         },
-        getTokens: function getTokens() {
-            return [my.player1.getToken(), my.player2.getToken()];
+        getTokens: getTokens,
+        getTokenAtPositionIndex: function getTokenAtPositionIndex(pos) {
+            var tokens = getTokens(),
+                i;
+            for (i = 0; i < tokens.length; i++) {
+                if (pos === tokens[i].getPositionIndex()) {
+                    return tokens[i];
+                }
+            }
+            return undefined;
         }
     };
 

@@ -12,6 +12,109 @@ var board = (function () {
         placedWalls: []
     };
 
+    //Returned values:
+    //0 is Horizontal Bottom
+    //1 is Horizontal Top
+    //2 is Vertical Left
+    //3 is Vertical Right
+    //-1 is Non-adjacent
+    function relativeWallOrientation(posIndex, wallIndex) {
+        var possibleWalls = getAdjacentWalls(posIndex, false),
+            i;
+        for (i = 0; i < possibleWalls.length; i++) {
+            if (possibleWalls[i] === wallIndex) {
+                switch (i) {
+                    case 0:
+                    case 2:
+                        return 0;
+                    case 4:
+                    case 6:
+                        return 1
+                    case 3:
+                    case 5:
+                        return 2;
+                    case 1:
+                    case 7:
+                        return 3;
+                }
+            }
+        }
+        return -1;
+    }
+
+    //Returned values:
+    //0 is North
+    //1 is East
+    //2 is South
+    //3 is West
+    //4 is Identical
+    //-1 is non-cardinal or non-adjacent
+    function relativePositionDirection(pos1, pos2) {
+        var moves = [
+                (pos1 - my.boardDimension),
+                (pos1 + 1),
+                (pos1 + my.boardDimension),
+                (pos1 - 1),
+                pos1
+            ],
+            i;
+        for (i = 0; i < moves.length; i++) {
+            if (moves[i] === pos2) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    function getAdjacentWalls(posIndex, onlyPlaced) {
+        var horWall,
+            verWall,
+            i,
+            possibleWalls = [],
+            walls = [];
+
+        //Bottom right wall pair indexes
+        horWall = (posIndex % my.boardDimension) * 2;
+        verWall = (posIndex % my.boardDimension) * 2 + 1;
+        horWall += Math.floor(posIndex / my.boardDimension) * (my.boardDimension - 1) * 2;
+        verWall += Math.floor(posIndex / my.boardDimension) * (my.boardDimension - 1) * 2;
+
+        possibleWalls.push(horWall, verWall);
+
+        //Bottom left
+        horWall -= 2;
+        verWall -= 2;
+
+        possibleWalls.push(horWall, verWall);
+
+        //Top left
+        horWall -= (my.boardDimension - 1) * 2;
+        verWall -= (my.boardDimension - 1) * 2;
+
+        possibleWalls.push(horWall, verWall);
+
+        //Top right
+        horWall += 2;
+        verWall += 2;
+
+        possibleWalls.push(horWall, verWall);
+        if (onlyPlaced) {
+            for (i = 0; i < possibleWalls.length; i++) {
+                if (my.placedWalls.indexOf(possibleWalls[i]) > -1) {
+                    walls.push(possibleWalls[i]);
+                }
+            }
+            return walls;
+        }
+        else {
+            return possibleWalls;
+        }
+    }
+
+    function isMoveValid(pos1, pos2) {
+
+    }
+
     function positionIndexToPosition(idx) {
         var x = idx % my.boardDimension,
             y = Math.floor(idx / my.boardDimension);
@@ -185,16 +288,18 @@ var board = (function () {
                 my.validMoves = undefined;
             }
         },
+        getAdjacentWalls: getAdjacentWalls,
         findValidMoves: function findValidMoves(posIndex) {
             var moves = [
-                    posIndex,
-                    (posIndex - 1),
+                    (posIndex - my.boardDimension),
                     (posIndex + 1),
                     (posIndex + my.boardDimension),
-                    (posIndex - my.boardDimension)
+                    (posIndex - 1),
+                    posIndex
                 ],
                 walls = [],
-                horWall, verWall, i, j, moveIndex,
+                horWall, verWall, i, j, moveIndex, jumpWalls,
+                opponentDirection, wallOrientation,
                 upperQuadrant = false,
                 leftQuadrant  = false;
 
@@ -290,7 +395,7 @@ var board = (function () {
                              leftQuadrant = true;
                         }
                     }
-                    //If the wall is even, it is a horizontal wall
+                    //If the wall index is even, it is a horizontal wall
                     if (walls[i] % 2 === 0) {
                         //Top horizontal walls block moving up
                         if (upperQuadrant) {
@@ -320,6 +425,17 @@ var board = (function () {
                                 moves.splice(moveIndex, 1);
                             }
                         }
+                    }
+                }
+            }
+
+            //Check for adjacent player, add valid jump moves
+            for (i = 0; i < moves.length; i++) {
+                if (players.getTokenAtPositionIndex(moves[i]) && moves[i] !== posIndex) {
+                    jumpWalls         = getAdjacentWalls(moves[i], true);
+                    opponentDirection = relativePositionDirection(posIndex, moves[i]);
+                    for (j = 0; j < jumpWalls.length; j++) {
+                        wallOrientation   = relativeWallOrientation(posIndex, jumpWalls[j]);
                     }
                 }
             }
