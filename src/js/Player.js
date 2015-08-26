@@ -6,7 +6,8 @@ var players = (function () {
 
     var my = {
         player1: undefined,
-        player2: undefined
+        player2: undefined,
+        currentPlayer: undefined
     };
 
     function getTokens() {
@@ -16,7 +17,7 @@ var players = (function () {
     //Basic player constructor
     function Player(clr, pos) {
         var my = {
-            currentPlayer: false,
+            color: clr,
             token: new Token(pos, clr, this)
         };
 
@@ -27,16 +28,17 @@ var players = (function () {
         this.getToken = function getToken() {
             return my.token;
         };
+        this.getColor = function getColor() {
+            return my.color;
+        };
     }
 
     function HumanPlayer(clr, pos) {
         Player.apply(this, arguments);
-
     }
 
     function ComputerPlayer(clr, pos) {
         Player.apply(this, arguments);
-        
     }
 
     function Token(pos, clr, plr){
@@ -122,6 +124,7 @@ var players = (function () {
                     return new ComputerPlayer(color, pos);
                 }
             }
+            my.currentPlayer = my.player1;
         },
         getPlayer1: function getPlayer1() {
             return my.player1;
@@ -139,6 +142,9 @@ var players = (function () {
                 }
             }
             return undefined;
+        },
+        getCurrentPlayer: function getCurrentPlayer() {
+            return my.currentPlayer;
         }
     };
 

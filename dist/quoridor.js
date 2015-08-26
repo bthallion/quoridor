@@ -12,10 +12,6 @@ var board = (function () {
     'use strict';
 
     var my = {
-        //0 is horizontal, 1 is vertical, 2 and 3 are preview walls
-        wallImg: [],
-        //0 is empty, 1 is highlighted
-        cellImg: [],
         placedWalls: []
     };
 
@@ -293,43 +289,71 @@ var board = (function () {
     }
 
     function coordinatesToWallIndex(coor) {
-        console.log('coordinates ' +coor);
         var boardUnit  = my.borderWidth + my.cellWidth,
             index      = 0,
+            //X coordinate is inside of a cell border
             boundTest1 = (coor[0] % boardUnit) <= my.borderWidth,
-            boundTest2 = (coor[1] % boardUnit) <= my.borderWidth;
+            //Y coordinate is inside of a cell border
+            boundTest2 = (coor[1] % boardUnit) <= my.borderWidth,
+            //X and Y coordinates are greater than the top and left border widths
+            boundTest3 = coor[0] > my.borderWidth && coor[1] > my.borderWidth,
+            //X and Y coordinates are less than the bottom and right border dimensions
+            boundTest4 = Math.floor(coor[0] / boardUnit) < my.boardDimension &&
+                Math.floor(coor[1] / boardUnit) < my.boardDimension;
 
-        if (boundTest1 !== boundTest2) {
-            console.log('valid wall coordinates');
+        if ((boundTest1 !== boundTest2) && boundTest3 && boundTest4) {
+            //Vertical wall y coordinate component
             if (Math.floor(coor[1] / boardUnit) > 0 && coor[1] % boardUnit > my.borderWidth) {
                 index += 2 * Math.floor(coor[1] / boardUnit) * (my.boardDimension - 1);
             }
+            //Horizontal wall y coordinate component
             else if (Math.floor(coor[1] / boardUnit) > 0 ) {
                 index += 2 * (Math.floor(coor[1] / boardUnit) - 1) * (my.boardDimension - 1);
             }
             if (Math.floor(coor[0] / boardUnit) < my.boardDimension) {
+
                 if (coor[0] % boardUnit > my.borderWidth) {
-                    index += 2 * Math.floor(coor[0] / boardUnit);
+                    //index += 2 * Math.floor(coor[0] / boardUnit);
                 }
                 else {
                     index += 2 * Math.floor(coor[0] / boardUnit) - 1;
                 }
             }
+            //If X or Y coordinates are within in the last board unit
+            //use the index of the previous wall
+            if (Math.floor(coor[0] / boardUnit) === (my.boardDimension - 1) &&
+                coor[0] % boardUnit > my.borderWidth) {
+                index -= 2;
+            }
+            else if (Math.floor(coor[1] / boardUnit) === (my.boardDimension - 1) &&
+                coor[1] % boardUnit > my.borderWidth) {
+                index -= (my.boardDimension - 1) * 2;
+            }
         }
+        else {
+            if(boundTest1 && boundTest2 && my.wallPreview > -1) {
 
+                return my.wallPreview;
+            }
+            else {
+                return -1;
+            }
+        }
         console.log('index '+index+'\n---------------');
         return index;
     }
 
-    function indexToRectWallCoordinates(idx) {
+    function indexToWallCoordinates(idx) {
         var x, y,
             boardUnit = my.borderWidth + my.cellWidth;
-
+        console.log('index to wall coors ');
         if (idx % 2 === 0) {
             x = my.borderWidth + ((idx % ((my.boardDimension - 1) * 2)) / 2) * boardUnit;
             y = ( 1 + Math.floor(idx / ((my.boardDimension - 1) * 2))) * boardUnit;
+            console.log('even x '+x+' y '+y);
         }
         else {
+            console.log('odd ');
             x = ((((idx % ((my.boardDimension - 1) * 2)) - 1) / 2) + 1) * boardUnit;
             y = my.borderWidth + Math.floor(idx / ((my.boardDimension - 1) * 2)) * boardUnit;
         }
@@ -385,19 +409,19 @@ var board = (function () {
             }
         }
 
-        if (my.wallPreview) {
-            coor = indexToRectWallCoordinates(my.wallPreview);
+        if (my.wallPreview !== undefined && my.wallPreview > -1) {
+            coor = indexToWallCoordinates(my.wallPreview);
             if (my.wallPreview % 2 === 0) {
-                drawWall(coor, 'yellow', false);
+                drawWall(coor, players.getCurrentPlayer().getColor(), false);
             }
             else {
-                drawWall(coor, 'yellow', true);
+                drawWall(coor, players.getCurrentPlayer().getColor(), true);
             }
         }
 
         if (my.placedWalls.length > 0) {
             for (i = 0; i < my.placedWalls.length; i++) {
-                coor = indexToRectWallCoordinates(my.placedWalls[i]);
+                coor = indexToWallCoordinates(my.placedWalls[i]);
                 if (my.placedWalls[i] % 2 === 0) {
                     drawWall(coor, 'white', false);
                 }
@@ -508,6 +532,7 @@ var board = (function () {
         },
         setWallPreview: function setWallPreview(coor) {
             if (coor) {
+                console.log('coor '+coor);
                 my.wallPreview = coordinatesToWallIndex(coor);
             }
             else {
@@ -538,6 +563,7 @@ var board = (function () {
         //Game initializers
         board.init(55, 9); //Cell width, board dimension
         players.init('human','ai');
+        board.drawBoard();
 
         //Click event handler
         board.getCanvas().addEventListener('mousedown', function (e) {
@@ -574,11 +600,9 @@ var board = (function () {
             if (selectedToken) {
                 x = mouse[0] - offsetX;
                 y = mouse[1] - offsetY;
-                //console.log("x "+x+" y "+y);
                 selectedToken.setCoordinates([x,y]);
             }
             else {
-                console.log('mouse '+mouse);
                 board.setWallPreview(mouse);
             }
             board.drawBoard();
@@ -607,7 +631,8 @@ var players = (function () {
 
     var my = {
         player1: undefined,
-        player2: undefined
+        player2: undefined,
+        currentPlayer: undefined
     };
 
     function getTokens() {
@@ -617,7 +642,7 @@ var players = (function () {
     //Basic player constructor
     function Player(clr, pos) {
         var my = {
-            currentPlayer: false,
+            color: clr,
             token: new Token(pos, clr, this)
         };
 
@@ -628,16 +653,17 @@ var players = (function () {
         this.getToken = function getToken() {
             return my.token;
         };
+        this.getColor = function getColor() {
+            return my.color;
+        };
     }
 
     function HumanPlayer(clr, pos) {
         Player.apply(this, arguments);
-
     }
 
     function ComputerPlayer(clr, pos) {
         Player.apply(this, arguments);
-        
     }
 
     function Token(pos, clr, plr){
@@ -723,6 +749,7 @@ var players = (function () {
                     return new ComputerPlayer(color, pos);
                 }
             }
+            my.currentPlayer = my.player1;
         },
         getPlayer1: function getPlayer1() {
             return my.player1;
@@ -740,6 +767,9 @@ var players = (function () {
                 }
             }
             return undefined;
+        },
+        getCurrentPlayer: function getCurrentPlayer() {
+            return my.currentPlayer;
         }
     };
 

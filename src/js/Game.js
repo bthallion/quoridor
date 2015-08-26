@@ -16,6 +16,7 @@
         //Game initializers
         board.init(55, 9); //Cell width, board dimension
         players.init('human','ai');
+        board.drawBoard();
 
         //Click event handler
         board.getCanvas().addEventListener('mousedown', function (e) {
@@ -52,11 +53,9 @@
             if (selectedToken) {
                 x = mouse[0] - offsetX;
                 y = mouse[1] - offsetY;
-                //console.log("x "+x+" y "+y);
                 selectedToken.setCoordinates([x,y]);
             }
             else {
-                console.log('mouse '+mouse);
                 board.setWallPreview(mouse);
             }
             board.drawBoard();
