@@ -311,10 +311,11 @@ var board = (function () {
                 index += 2 * (Math.floor(coor[1] / boardUnit) - 1) * (my.boardDimension - 1);
             }
             if (Math.floor(coor[0] / boardUnit) < my.boardDimension) {
-
+                //Horizontal wall x coordinate component
                 if (coor[0] % boardUnit > my.borderWidth) {
-                    //index += 2 * Math.floor(coor[0] / boardUnit);
+                    index += 2 * Math.floor(coor[0] / boardUnit);
                 }
+                //Vertical wall x coordinate component
                 else {
                     index += 2 * Math.floor(coor[0] / boardUnit) - 1;
                 }
@@ -331,15 +332,14 @@ var board = (function () {
             }
         }
         else {
+            //If pointer is at wall vertex, use currently previewed index
             if(boundTest1 && boundTest2 && my.wallPreview > -1) {
-
                 return my.wallPreview;
             }
             else {
                 return -1;
             }
         }
-        console.log('index '+index+'\n---------------');
         return index;
     }
 
