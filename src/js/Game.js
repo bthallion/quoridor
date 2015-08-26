@@ -8,8 +8,9 @@
         var selectedToken, offsetY, offsetX;
 
         function fixMouse(e) {
-            var mx = e.clientX - e.target.offsetLeft,
-                my = e.clientY - e.target.offsetTop;
+            var rect = board.getCanvas().getBoundingClientRect();
+            var mx = (e.clientX - rect.left) / (rect.right - rect.left) * board.getCanvas().width,
+                my = e.clientY - rect.top / (rect.bottom - rect.top) * board.getCanvas().height;
             return [mx, my];
         }
         //Game initializers
@@ -24,7 +25,6 @@
             mouse = fixMouse(e);
             mx = mouse[0];
             my = mouse[1];
-
             //Check to see if pointer intersects player tokens
             token = players.getTokens();
             for (i = 0; i < token.length; i++) {
@@ -38,22 +38,28 @@
                     break;
                 }
             }
-            moves = board.findValidMoves(selectedToken.getPositionIndex());
-            board.setValidMoves(moves);
-            board.drawBoard();
+            if (selectedToken) {
+                moves = board.getValidMoves(selectedToken.getPositionIndex(), false);
+                board.setValidMoves(moves);
+                board.drawBoard();
+            }
         });
 
         //Move event
         board.getCanvas().addEventListener('mousemove', function (e) {
-            var mouse, x, y;
+            var mouse = fixMouse(e),
+                x, y;
             if (selectedToken) {
-                mouse = fixMouse(e);
                 x = mouse[0] - offsetX;
                 y = mouse[1] - offsetY;
                 //console.log("x "+x+" y "+y);
                 selectedToken.setCoordinates([x,y]);
-                board.drawBoard();
             }
+            else {
+                console.log('mouse '+mouse);
+                board.setWallPreview(mouse);
+            }
+            board.drawBoard();
         });
 
         //Release event
@@ -65,7 +71,6 @@
                 board.drawBoard();
                 selectedToken = undefined;
             }
-            //console.log('mouseup');
         });
 
     });

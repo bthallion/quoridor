@@ -5,36 +5,82 @@ var board = (function () {
     'use strict';
 
     var my = {
-        //0 is horizontal, 1 is vertical
-        wallImg: [],
-        //0 is empty, 1 is highlighted
-        cellImg: [],
         placedWalls: []
     };
 
+    //Returns surrounding wall indexes regardless of position on board
+    function getUnboundedAdjacentWalls(pos) {
+        var wall,
+            walls = [];
+
+        //Bottom right wall vertex
+        wall = (pos % my.boardDimension) * 2 +
+            Math.floor(pos / my.boardDimension) * (my.boardDimension - 1) * 2;
+        walls.push(wall, (wall + 1));
+
+        //Bottom left
+        wall -= 2;
+        walls.push(wall, (wall + 1));
+
+        //Top left
+        wall -= (my.boardDimension - 1) * 2;
+        walls.push(wall, (wall + 1));
+
+        //Top right
+        wall += 2;
+        walls.push(wall, (wall + 1));
+
+        return walls;
+    }
+
+    //0:North 1:East 2:South 3:West 4:Identity
+    function getUnboundedMoveSet(pos) {
+        return [
+            (pos - my.boardDimension),
+            (pos + 1),
+            (pos + my.boardDimension),
+            (pos - 1),
+            pos
+        ];
+    }
+
+    //Returns moveset with respect to board position, ignores walls
+    function getMoveSet(pos) {
+        var i,
+            unboundedMoveset = getUnboundedMoveSet(pos),
+            moveset          = unboundedMoveset.slice(),
+            edges            = getAdjacentBoardEdges(pos);
+
+        for (i = 0; i < edges.length; i++) {
+            moveset.splice(moveset.indexOf(unboundedMoveset[edges[i]]), 1);
+        }
+
+        return moveset;
+    }
+
     //Returned values:
-    //0 is Horizontal Bottom
-    //1 is Horizontal Top
-    //2 is Vertical Left
-    //3 is Vertical Right
+    //0 is Horizontal Top
+    //1 is Vertical Right
+    //2 is Horizontal Bottom
+    //3 is Vertical Left
     //-1 is Non-adjacent
-    function relativeWallOrientation(posIndex, wallIndex) {
-        var possibleWalls = getAdjacentWalls(posIndex, false),
+    function getRelativeWallOrientation(posIndex, wallIndex) {
+        var unboundedWalls = getUnboundedAdjacentWalls(posIndex),
             i;
-        for (i = 0; i < possibleWalls.length; i++) {
-            if (possibleWalls[i] === wallIndex) {
+        for (i = 0; i < unboundedWalls.length; i++) {
+            if (unboundedWalls[i] === wallIndex) {
                 switch (i) {
-                    case 0:
-                    case 2:
-                        return 0;
                     case 4:
                     case 6:
-                        return 1
-                    case 3:
-                    case 5:
-                        return 2;
+                        return 0;
                     case 1:
                     case 7:
+                        return 1;
+                    case 0:
+                    case 2:
+                        return 2;
+                    case 3:
+                    case 5:
                         return 3;
                 }
             }
@@ -49,15 +95,9 @@ var board = (function () {
     //3 is West
     //4 is Identical
     //-1 is non-cardinal or non-adjacent
-    function relativePositionDirection(pos1, pos2) {
-        var moves = [
-                (pos1 - my.boardDimension),
-                (pos1 + 1),
-                (pos1 + my.boardDimension),
-                (pos1 - 1),
-                pos1
-            ],
-            i;
+    function getRelativeDirection(pos1, pos2) {
+        var i,
+            moves = getUnboundedMoveSet(pos1);
         for (i = 0; i < moves.length; i++) {
             if (moves[i] === pos2) {
                 return i;
@@ -66,53 +106,173 @@ var board = (function () {
         return -1;
     }
 
-    function getAdjacentWalls(posIndex, onlyPlaced) {
-        var horWall,
-            verWall,
-            i,
-            possibleWalls = [],
-            walls = [];
-
-        //Bottom right wall pair indexes
-        horWall = (posIndex % my.boardDimension) * 2;
-        verWall = (posIndex % my.boardDimension) * 2 + 1;
-        horWall += Math.floor(posIndex / my.boardDimension) * (my.boardDimension - 1) * 2;
-        verWall += Math.floor(posIndex / my.boardDimension) * (my.boardDimension - 1) * 2;
-
-        possibleWalls.push(horWall, verWall);
-
-        //Bottom left
-        horWall -= 2;
-        verWall -= 2;
-
-        possibleWalls.push(horWall, verWall);
-
-        //Top left
-        horWall -= (my.boardDimension - 1) * 2;
-        verWall -= (my.boardDimension - 1) * 2;
-
-        possibleWalls.push(horWall, verWall);
-
-        //Top right
-        horWall += 2;
-        verWall += 2;
-
-        possibleWalls.push(horWall, verWall);
-        if (onlyPlaced) {
-            for (i = 0; i < possibleWalls.length; i++) {
-                if (my.placedWalls.indexOf(possibleWalls[i]) > -1) {
-                    walls.push(possibleWalls[i]);
-                }
-            }
-            return walls;
+    //Direction indexes
+    //0:North 1:East 2:South 3:West
+    function getMovePositionIndex(pos, dir) {
+        var moves = [
+                (pos - my.boardDimension),
+                (pos + 1),
+                (pos + my.boardDimension),
+                (pos - 1)
+            ];
+        if (isMoveOnBoard(pos, moves[dir])) {
+            return moves[dir];
         }
         else {
-            return possibleWalls;
+            return -1;
         }
     }
 
-    function isMoveValid(pos1, pos2) {
+    function getAdjacentWalls(posIndex, includePotentialWalls) {
+        var i,
+            //0,1:Southeast 2,3:Southwest 4,5:Northwest 6,7:Northeast Wall Vertices
+            unboundedWalls = getUnboundedAdjacentWalls(posIndex),
+            walls          = unboundedWalls.slice(),
+            edges          = getAdjacentBoardEdges(posIndex),
+            invalidWalls   = [];
 
+        function removeWalls(wallIndexes) {
+            var spliceIndex, k;
+
+            for (k = 0; k < wallIndexes.length; k++) {
+                spliceIndex = walls.indexOf(unboundedWalls[wallIndexes[k]]);
+                if (spliceIndex !== -1) {
+                    walls.splice(spliceIndex, 2);
+                }
+            }
+        }
+
+        //Remove invalid edge walls
+        for (i = 0; i < edges.length; i++) {
+            switch (edges[i]) {
+                //Top edge
+                case 0:
+                    removeWalls([4,6]);
+                    break;
+                //Right edge
+                case 1:
+                    removeWalls([6,0]);
+                    break;
+                //Bottom edge
+                case 2:
+                    removeWalls([0,2]);
+                    break;
+                //Left edge
+                case 3:
+                    removeWalls([2,4]);
+                    break;
+            }
+        }
+
+        if (includePotentialWalls) {
+            //Regardless of currently placed walls, solely based on position
+            return walls;
+        }
+        else {
+            for (i = 0; i < walls.length; i++) {
+                if (my.placedWalls.indexOf(walls[i]) === -1) {
+                    invalidWalls.push(walls[i]);
+                }
+            }
+            for (i = 0; i < invalidWalls.length; i++) {
+                walls.splice(walls.indexOf(invalidWalls[i]), 1);
+            }
+            return walls;
+        }
+    }
+    
+    //Returned values:
+    //0:Top 1:Right 2:Bottom 3:Left
+    function getAdjacentBoardEdges(pos) {
+        var i,
+            edges = [];
+
+        //Check if moves are on board
+        for (i = 0; i < 4; i++) {
+            if (getMovePositionIndex(pos, i) === -1) {
+                edges.push(i);
+            }
+        }
+
+        return edges;
+    }
+
+    function isMoveOnBoard(pos1, pos2) {
+        var direction = getRelativeDirection(pos1, pos2);
+
+        switch (direction) {
+            //North is valid if not on top edge
+            case 0:
+                return (Math.floor(pos1 / my.boardDimension) > 0);
+            //East is valid if not on right edge
+            case 1:
+                return ((pos1 % my.boardDimension) < 8);
+            //South
+            case 2:
+                return (Math.floor(pos1 / my.boardDimension) < 8);
+            //West
+            case 3:
+                return ((pos1 % my.boardDimension) > 0);
+            default:
+                return false;
+        }
+    }
+
+    function getValidMoves(posIndex, ignoreJump) {
+        var moves = getMoveSet(posIndex),
+            walls = getAdjacentWalls(posIndex, false),
+            i, j, k, jumpSpace,
+            opponentDirection, opponentMoves, wallOrientation;
+
+
+
+        for (i = 0; i < walls.length; i++) {
+            //If an obstructive wall has been placed
+            if (my.placedWalls.indexOf(walls[i]) > -1) {
+                //Get blocking direction of wall
+                wallOrientation = getRelativeWallOrientation(posIndex, walls[i]);
+                //And remove that direction from moveset
+                moves.splice(moves.indexOf(getMovePositionIndex(posIndex, wallOrientation)), 1);
+            }
+        }
+
+        //Check for adjacent player, add valid jump moves
+        if (!ignoreJump) {
+            for (i = 0; i < moves.length; i++) {
+                if (players.getTokenAtPositionIndex(moves[i]) && moves[i] !== posIndex) {
+                    opponentDirection = getRelativeDirection(posIndex, moves[i]);
+                    walls             = getAdjacentWalls(moves[i], false);
+                    for (j = 0; j < walls.length; j++) {
+                        wallOrientation = getRelativeWallOrientation(moves[i], walls[j]);
+                        //If wall obstructs jump, add opponent's moveset to current player's
+                        if (opponentDirection === wallOrientation) {
+                            opponentMoves = getValidMoves(moves[i], true);
+                        }
+                    }
+                    //If jump is clear, add jump to moveset
+                    //remove opponent's position
+                    //If jump is off of board (which is an unclear case in the rules!) add opponents moves
+                    if (!opponentMoves) {
+                        jumpSpace = getMovePositionIndex(moves[i], opponentDirection);
+                        if (jumpSpace > -1) {
+                            moves.splice(i, 1, jumpSpace);
+                        }
+                        else {
+                            opponentMoves = getValidMoves(moves[i], true);
+                        }
+                    }
+                    if (opponentMoves) {
+                        for (k = 0; k < opponentMoves.length; k++) {
+                            if (moves.indexOf(opponentMoves[k]) === -1) {
+                                moves.push(opponentMoves[k]);
+                            }
+                        }
+                        moves.splice(i, 1);
+                    }
+                }
+            }
+        }
+        return moves;
     }
 
     function positionIndexToPosition(idx) {
@@ -121,14 +281,73 @@ var board = (function () {
         return [x,y];
     }
 
-    function positionToRectCoordinates(position) {
+    function coordinatesToWallIndex(coor) {
+        console.log('coordinates ' +coor);
+        var boardUnit  = my.borderWidth + my.cellWidth,
+            index      = 0,
+            boundTest1 = (coor[0] % boardUnit) <= my.borderWidth,
+            boundTest2 = (coor[1] % boardUnit) <= my.borderWidth;
+
+        if (boundTest1 !== boundTest2) {
+            console.log('valid wall coordinates');
+            if (Math.floor(coor[1] / boardUnit) > 0 && coor[1] % boardUnit > my.borderWidth) {
+                index += 2 * Math.floor(coor[1] / boardUnit) * (my.boardDimension - 1);
+            }
+            else if (Math.floor(coor[1] / boardUnit) > 0 ) {
+                index += 2 * (Math.floor(coor[1] / boardUnit) - 1) * (my.boardDimension - 1);
+            }
+            if (Math.floor(coor[0] / boardUnit) < my.boardDimension) {
+                if (coor[0] % boardUnit > my.borderWidth) {
+                    index += 2 * Math.floor(coor[0] / boardUnit);
+                }
+                else {
+                    index += 2 * Math.floor(coor[0] / boardUnit) - 1;
+                }
+            }
+        }
+
+        console.log('index '+index+'\n---------------');
+        return index;
+    }
+
+    function indexToRectWallCoordinates(idx) {
+        var x, y,
+            boardUnit = my.borderWidth + my.cellWidth;
+
+        if (idx % 2 === 0) {
+            x = my.borderWidth + ((idx % ((my.boardDimension - 1) * 2)) / 2) * boardUnit;
+            y = ( 1 + Math.floor(idx / ((my.boardDimension - 1) * 2))) * boardUnit;
+        }
+        else {
+            x = ((((idx % ((my.boardDimension - 1) * 2)) - 1) / 2) + 1) * boardUnit;
+            y = my.borderWidth + Math.floor(idx / ((my.boardDimension - 1) * 2)) * boardUnit;
+        }
+        return [x,y];
+    }
+
+    function positionToRectCellCoordinates(position) {
         var x = position[0] * my.cellWidth + (position[0] + 1) * my.borderWidth,
             y = position[1] * my.cellWidth + (position[1] + 1) * my.borderWidth;
         return [x,y];
     }
 
     function drawBoard() {
-        var i, j, k, x, y, tokens;
+        var i, j, k, x, y, coor, tokens;
+
+        function drawCell(coor, fill) {
+            my.boardContext.fillStyle = fill;
+            my.boardContext.fillRect(coor[0], coor[1], my.cellWidth, my.cellWidth);
+        }
+
+        function drawWall(coor, fill, vertical) {
+            my.boardContext.fillStyle = fill;
+            if (vertical) {
+                my.boardContext.fillRect(coor[0], coor[1], my.borderWidth, my.cellWidth * 2 + my.borderWidth);
+            }
+            else {
+                my.boardContext.fillRect(coor[0], coor[1], my.cellWidth * 2 + my.borderWidth, my.borderWidth);
+            }
+        }
 
         my.boardContext.fillStyle = 'black';
         my.boardContext.fillRect(0, 0, my.boardSize, my.boardSize);
@@ -136,24 +355,47 @@ var board = (function () {
             for (j = 0; j < my.boardDimension; j++) {
                 x = my.borderWidth * (j + 1) + my.cellWidth * j;
                 y = my.borderWidth * (i + 1) + my.cellWidth * i;
-                //Draw highlighted cell
+                //Draw highlighted cells
                 if (my.validMoves) {
                     for (k = 0; k < my.validMoves.length; k++) {
                         if (my.validMoves[k][0] === x && my.validMoves[k][1] === y) {
-                            my.boardContext.drawImage(my.cellImg[1], x, y);
+                            drawCell([x,y], '#D8D8D8');
                             k = my.validMoves.length + 1;
                             break;
                         }
                     }
                     if (k === my.validMoves.length) {
-                        my.boardContext.drawImage(my.cellImg[0], x, y);
+                        drawCell([x,y], 'grey');
                     }
                 }
                 else {
-                    my.boardContext.drawImage(my.cellImg[0], x, y);
+                    drawCell([x,y], 'grey');
                 }
             }
         }
+
+        if (my.wallPreview) {
+            coor = indexToRectWallCoordinates(my.wallPreview);
+            if (my.wallPreview % 2 === 0) {
+                drawWall(coor, 'yellow', false);
+            }
+            else {
+                drawWall(coor, 'yellow', true);
+            }
+        }
+
+        if (my.placedWalls.length > 0) {
+            for (i = 0; i < my.placedWalls.length; i++) {
+                coor = indexToRectWallCoordinates(my.placedWalls[i]);
+                if (my.placedWalls[i] % 2 === 0) {
+                    drawWall(coor, 'white', false);
+                }
+                else {
+                    drawWall(coor, 'white', true);
+                }
+            }
+        }
+
         tokens = players.getTokens();
         if (tokens) {
             tokens[0].drawToken(my.boardContext);
@@ -161,11 +403,12 @@ var board = (function () {
         }
     }
 
+    //Public methods
     return {
         init: function init(cw, dim) {
             my.cellWidth              = cw;
             my.boardDimension         = dim;
-            my.borderWidth            = cw / 6;
+            my.borderWidth            = cw / 5;
             my.topStartPos            = [Math.floor(my.boardDimension / 2), 0];
             my.botStartPos            = [Math.floor(my.boardDimension / 2), my.boardDimension - 1];
             my.boardSize              =  my.cellWidth * my.boardDimension +
@@ -179,6 +422,7 @@ var board = (function () {
             my.hudContext.fillStyle   = 'black';
             my.hudContext.fillRect(0,0,my.boardSize/3,my.boardSize);
             document.body.appendChild(my.hudCanvas);
+
             //Board Canvas
             my.boardCanvas            = document.createElement('canvas');
             my.boardCanvas.id         = 'board';
@@ -188,45 +432,6 @@ var board = (function () {
             my.boardContext.fillStyle = 'black';
             my.boardContext.fillRect(0, 0, my.boardSize, my.boardSize);
             document.body.appendChild(my.boardCanvas);
-
-            drawImgs();
-            my.cellImg[0].onload = drawBoard;
-
-            function drawImgs() {
-                var canvas  = document.createElement('canvas'),
-                    ctx     = canvas.getContext('2d'),
-                    celWid  = my.cellWidth,
-                    img     = document.createElement('img'),
-                    borWid  = my.borderWidth;
-
-                //Empty cell
-                ctx.fillStyle = 'grey';
-                ctx.fillRect(0, 0, celWid, celWid);
-                img.src = canvas.toDataURL();
-                my.cellImg[0] = img;
-
-                //Highlighted cell
-                img = document.createElement('img');
-                ctx.fillStyle = '#D8D8D8';
-                ctx.fillRect(0, 0, celWid, celWid);
-                img.src = canvas.toDataURL();
-                my.cellImg[1] = img;
-
-                //Horizontal Wall
-                img = document.createElement('img');
-                ctx.fillStyle = 'white';
-                ctx.clearRect(0, 0, celWid, celWid);
-                ctx.fillRect(0, 0, celWid, borWid);
-                img.src = canvas.toDataURL();
-                my.wallImg[0] = img;
-                
-                //Vertical Wall
-                img = document.createElement('img');
-                ctx.clearRect(0, 0, celWid, borWid);
-                ctx.fillRect(0, 0, borWid, celWid);
-                img.src = canvas.toDataURL();
-                my.wallImg[1] = img;
-            }
 
         },
         drawBoard: drawBoard,
@@ -253,7 +458,7 @@ var board = (function () {
             return my.topStartPos;
         },
         //Pixel coordinates on canvas return board matrix position
-        coordinatesToPosition: function coordinatesToPosition(coor) {
+        coordinatesToCellPosition: function coordinatesToCellPosition(coor) {
             var boardUnit = my.borderWidth + my.cellWidth,
                 pos1      = Math.floor(coor[0] / boardUnit),
                 pos2      = Math.floor(coor[1] / boardUnit),
@@ -266,21 +471,23 @@ var board = (function () {
                 }
             }
             return [pos1, pos2];
+
         },
+        coordinatesToWallIndex: coordinatesToWallIndex,
         //Returns center coordinates of cell
-        positionToCoordinates: function positionToCoordinates(pos) {
+        positionToCellCoordinates: function positionToCellCoordinates(pos) {
             var x = (pos[0] + 0.5) * my.cellWidth + (pos[0] + 1) * my.borderWidth,
                 y = (pos[1] + 0.5) * my.cellWidth + (pos[1] + 1) * my.borderWidth;
             return [x,y];
         },
         //Returns top left coordinates of cell
-        positionToRectCoordinates: positionToRectCoordinates,
+        positionToRectCellCoordinates: positionToRectCellCoordinates,
         setValidMoves: function setValidMoves(mvs) {
             var moves = [],
                 i;
             if (mvs) {
                 for (i = 0; i < mvs.length; i++) {
-                    moves.push(positionToRectCoordinates(positionIndexToPosition(mvs[i])));
+                    moves.push(positionToRectCellCoordinates(positionIndexToPosition(mvs[i])));
                 }
                 my.validMoves = moves;
             }
@@ -288,160 +495,17 @@ var board = (function () {
                 my.validMoves = undefined;
             }
         },
+        setWallPreview: function setWallPreview(coor) {
+            if (coor) {
+                my.wallPreview = coordinatesToWallIndex(coor);
+            }
+            else {
+                my.wallPreview = undefined;
+            }
+        },
         getAdjacentWalls: getAdjacentWalls,
-        findValidMoves: function findValidMoves(posIndex) {
-            var moves = [
-                    (posIndex - my.boardDimension),
-                    (posIndex + 1),
-                    (posIndex + my.boardDimension),
-                    (posIndex - 1),
-                    posIndex
-                ],
-                walls = [],
-                horWall, verWall, i, j, moveIndex, jumpWalls,
-                opponentDirection, wallOrientation,
-                upperQuadrant = false,
-                leftQuadrant  = false;
-
-            //Bottom right wall pair indexes
-            horWall = (posIndex % my.boardDimension) * 2;
-            verWall = (posIndex % my.boardDimension) * 2 + 1;
-            horWall += Math.floor(posIndex / my.boardDimension) * (my.boardDimension - 1) * 2;
-            verWall += Math.floor(posIndex / my.boardDimension) * (my.boardDimension - 1) * 2;
-
-            //Consider indexes if the cell position is not on the bottom or right edges
-            //Remove invalid moves
-            if ((posIndex % my.boardDimension) < 8) {
-                if (Math.floor(posIndex / my.boardDimension) < 8) {
-                    walls.push(horWall, verWall);
-                }
-                else {
-                    moveIndex = moves.indexOf((posIndex + my.boardDimension));
-                    if (moveIndex > -1) {
-                        moves.splice(moveIndex, 1);
-                    }
-                }
-            }
-            else {
-                moveIndex = moves.indexOf((posIndex + 1));
-                if (moveIndex > -1) {
-                    moves.splice(moveIndex, 1);
-                }
-            }
-
-            //Bottom left
-            horWall -= 2;
-            verWall -= 2;
-
-            if ((posIndex % my.boardDimension) > 0) {
-                if (Math.floor(posIndex / my.boardDimension) < 8) {
-                    walls.push(horWall, verWall);
-                }
-            }
-            else {
-                moveIndex = moves.indexOf((posIndex - 1));
-                if (moveIndex > -1) {
-                    moves.splice(moveIndex, 1);
-                }
-            }
-
-            //Top left
-            horWall -= (my.boardDimension - 1) * 2;
-            verWall -= (my.boardDimension - 1) * 2;
-
-            if ((posIndex % my.boardDimension) > 0) {
-                if (Math.floor(posIndex / my.boardDimension) > 0) {
-                    walls.push(horWall, verWall);
-                }
-                else {
-                    moveIndex = moves.indexOf((posIndex - my.boardDimension));
-                    if (moveIndex > -1) {
-                        moves.splice(moveIndex, 1);
-                    }
-                }
-            }
-
-            //Top right
-            horWall += 2;
-            verWall += 2;
-
-            if ((posIndex % my.boardDimension) < 8) {
-                if (Math.floor(posIndex / my.boardDimension) > 0) {
-                    walls.push(horWall, verWall);
-                }
-                else {
-                    moveIndex = moves.indexOf((posIndex - my.boardDimension));
-                    if (moveIndex > -1) {
-                        moves.splice(moveIndex, 1);
-                    }
-                }
-            }
-            else {
-                moveIndex = moves.indexOf((posIndex + 1));
-                if (moveIndex > -1) {
-                    moves.splice(moveIndex, 1);
-                }
-            }
-
-            for (i = 0; i < walls.length; i++) {
-                //If an obstructive wall has been placed
-                if (my.placedWalls.indexOf(walls[i]) > -1) {
-                    for (j = 0; j < walls.length; j++) {
-                        //Check to see if it is part of a left or top wall pairing
-                        if (Math.floor(walls[i] / (my.boardDimension - 1)) < Math.floor(walls[j] / (my.boardDimension - 1))) {
-                            upperQuadrant = true;
-                        }
-                        if ((walls[i] + 2) === walls[j]) {
-                             leftQuadrant = true;
-                        }
-                    }
-                    //If the wall index is even, it is a horizontal wall
-                    if (walls[i] % 2 === 0) {
-                        //Top horizontal walls block moving up
-                        if (upperQuadrant) {
-                            moveIndex = moves.indexOf((posIndex - my.boardDimension));
-                            if (moveIndex > -1) {
-                                moves.splice(moveIndex, 1);
-                            }
-                        }
-                        else {
-                            moveIndex = moves.indexOf((posIndex + my.boardDimension));
-                            if (moveIndex > -1) {
-                                moves.splice(moveIndex, 1);
-                            }
-                        }
-                    }
-                    else {
-                        //Left vertical walls block left
-                        if (leftQuadrant) {
-                            moveIndex = moves.indexOf((posIndex - 1));
-                            if (moveIndex > -1) {
-                                moves.splice(moveIndex, 1);
-                            }
-                        }
-                        else {
-                            moveIndex = moves.indexOf((posIndex + 1));
-                            if (moveIndex > -1) {
-                                moves.splice(moveIndex, 1);
-                            }
-                        }
-                    }
-                }
-            }
-
-            //Check for adjacent player, add valid jump moves
-            for (i = 0; i < moves.length; i++) {
-                if (players.getTokenAtPositionIndex(moves[i]) && moves[i] !== posIndex) {
-                    jumpWalls         = getAdjacentWalls(moves[i], true);
-                    opponentDirection = relativePositionDirection(posIndex, moves[i]);
-                    for (j = 0; j < jumpWalls.length; j++) {
-                        wallOrientation   = relativeWallOrientation(posIndex, jumpWalls[j]);
-                    }
-                }
-            }
-            console.log('moves '+moves);
-            return moves;
-        }
+        getValidMoves: getValidMoves,
+        isMoveOnBoard: isMoveOnBoard
     };
 
 })();

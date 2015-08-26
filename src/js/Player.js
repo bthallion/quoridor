@@ -92,16 +92,19 @@ var players = (function () {
         this.updatePosition = function updatePosition() {
             var coor = [my.x, my.y];
 
-            my.position = board.coordinatesToPosition(coor);
+            my.position = board.coordinatesToCellPosition(coor);
         };
         this.updateCoordinates = function updateCoordinates() {
-            var coor = board.positionToCoordinates(my.position);
+            var coor = board.positionToCellCoordinates(my.position);
 
             my.x = coor[0];
             my.y = coor[1];
         };
         this.getPositionIndex = function getPositionIndex() {
             return my.position[0] + my.position[1] * board.getDimension();
+        };
+        this.getPosition = function getPosition() {
+            return my.position;
         };
     }
 
