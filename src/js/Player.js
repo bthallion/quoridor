@@ -14,22 +14,34 @@ var players = (function () {
         return [my.player1.getToken(), my.player2.getToken()];
     }
 
+    function getWinningRange(startPos) {
+        console.log('win range condition for '+startPos+' '+(Math.floor(startPos / board.getDimension()) === 0));
+        if (Math.floor(startPos / board.getDimension()) === 0) {
+            return [board.getDimension() * (board.getDimension() - 1), Math.pow(board.getDimension(), 2) - 1];
+        }
+        else {
+            return [0, board.getDimension() - 1];
+        }
+    }
+
     //Basic player constructor
-    function Player(clr, pos) {
+    function Player(clr, pos, range) {
         var my = {
             color: clr,
-            token: new Token(pos, clr, this)
-        };
-
-        this.currentPlayer = function currentPlayer() {
-            return my.currentPlayer;
+            token: new Token(pos, range, clr, this),
+            acted: false,
         };
 
         this.getToken = function getToken() {
             return my.token;
         };
+
         this.getColor = function getColor() {
             return my.color;
+        };
+
+        this.acted = function didAction() {
+            my.acted = !my.acted;
         };
     }
 
@@ -41,16 +53,18 @@ var players = (function () {
         Player.apply(this, arguments);
     }
 
-    function Token(pos, clr, plr){
+    function Token(pos, range, clr, plr){
         var my = {
                 position: pos,
                 color: clr,
-                player: plr
+                player: plr,
+                winRange: range
             },
-            celWid = board.getCellWidth();
+            celWid = board.getCellWidth(),
+            coors  = board.positionToCellCoordinates(my.position);
 
-        my.x      = (my.position[0] + 0.5) * celWid + (my.position[0] + 1) * board.getBorderWidth();
-        my.y      = (my.position[1] + 0.5) * celWid + (my.position[1] + 1) * board.getBorderWidth();
+        my.x      = coors[0];
+        my.y      = coors[1];
         my.radius = celWid / 2 * 0.8;
 
         this.drawToken = function drawToken(ctx) {
@@ -92,21 +106,24 @@ var players = (function () {
             return [my.x, my.y];
         };
         this.updatePosition = function updatePosition() {
-            var coor = [my.x, my.y];
-
-            my.position = board.coordinatesToCellPosition(coor);
+            var newPos,
+                coor = [my.x, my.y];
+            newPos = board.coordinatesToCellPosition(coor);
+            if (newPos !== my.position) {
+                my.player.acted();
+                my.position = newPos;
+            }
         };
         this.updateCoordinates = function updateCoordinates() {
             var coor = board.positionToCellCoordinates(my.position);
-
             my.x = coor[0];
             my.y = coor[1];
         };
-        this.getPositionIndex = function getPositionIndex() {
-            return my.position[0] + my.position[1] * board.getDimension();
-        };
         this.getPosition = function getPosition() {
             return my.position;
+        };
+        this.getWinRange = function getWinRange() {
+            return my.winRange;
         };
     }
 
@@ -118,10 +135,10 @@ var players = (function () {
 
             function playerType(type, color, pos) {
                 if (type === 'human') {
-                    return new HumanPlayer(color, pos);
+                    return new HumanPlayer(color, pos, getWinningRange(pos));
                 }
                 else {
-                    return new ComputerPlayer(color, pos);
+                    return new ComputerPlayer(color, pos, getWinningRange(pos));
                 }
             }
             my.currentPlayer = my.player1;
@@ -133,11 +150,11 @@ var players = (function () {
             return my.player2;
         },
         getTokens: getTokens,
-        getTokenAtPositionIndex: function getTokenAtPositionIndex(pos) {
+        getTokenAtPosition: function getTokenAtPosition(pos) {
             var tokens = getTokens(),
                 i;
             for (i = 0; i < tokens.length; i++) {
-                if (pos === tokens[i].getPositionIndex()) {
+                if (pos === tokens[i].getPosition()) {
                     return tokens[i];
                 }
             }
@@ -145,6 +162,9 @@ var players = (function () {
         },
         getCurrentPlayer: function getCurrentPlayer() {
             return my.currentPlayer;
+        },
+        nextPlayer: function nextPlayer() {
+            my.currentPlayer = my.currentPlayer === my.player1 ? my.player2 : my.player1;
         }
     };
 

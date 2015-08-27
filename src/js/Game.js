@@ -20,30 +20,38 @@
 
         //Click event handler
         board.getCanvas().addEventListener('mousedown', function (e) {
-            var mouse, mx, my, token, i, dx, dy, moves;
+            var mouse, mx, my, tokens, i, dx, dy, moves, wall;
 
             //Shift pointer coordinates to 0,0 at top left of canvas
             mouse = fixMouse(e);
             mx = mouse[0];
             my = mouse[1];
             //Check to see if pointer intersects player tokens
-            token = players.getTokens();
-            for (i = 0; i < token.length; i++) {
-                dx = mx - token[i].getX();
-                dy = my - token[i].getY();
+            tokens = players.getTokens();
+            for (i = 0; i < tokens.length; i++) {
+                dx = mx - tokens[i].getX();
+                dy = my - tokens[i].getY();
 
-                if ((dx * dx + dy * dy) <= Math.pow(token[i].getRadius(), 2)) {
-                    selectedToken = token[i];
+                if ((dx * dx + dy * dy) <= Math.pow(tokens[i].getRadius(), 2)) {
+                    selectedToken = tokens[i];
                     offsetX = dx;
                     offsetY = dy;
                     break;
                 }
             }
+            wall = board.getWallPreview();
             if (selectedToken) {
-                moves = board.getValidMoves(selectedToken.getPositionIndex(), false);
+                moves = board.getValidMoves(selectedToken.getPosition(), false);
                 board.setValidMoves(moves);
                 board.drawBoard();
             }
+            else if (wall > -1) {
+                if (board.isWallValid(wall)) {
+                    board.placeWall(wall);
+                    board.drawBoard();
+                }
+            }
+
         });
 
         //Move event
