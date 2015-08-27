@@ -15,7 +15,6 @@ var players = (function () {
     }
 
     function getWinningRange(startPos) {
-        console.log('win range condition for '+startPos+' '+(Math.floor(startPos / board.getDimension()) === 0));
         if (Math.floor(startPos / board.getDimension()) === 0) {
             return [board.getDimension() * (board.getDimension() - 1), Math.pow(board.getDimension(), 2) - 1];
         }
@@ -29,7 +28,7 @@ var players = (function () {
         var my = {
             color: clr,
             token: new Token(pos, range, clr, this),
-            acted: false,
+            hasActed: false,
         };
 
         this.getToken = function getToken() {
@@ -40,8 +39,12 @@ var players = (function () {
             return my.color;
         };
 
-        this.acted = function didAction() {
-            my.acted = !my.acted;
+        this.act = function act() {
+            my.hasActed = !my.hasActed;
+        };
+
+        this.hasActed = function hasActed() {
+            return my.hasActed;
         };
     }
 
@@ -109,8 +112,8 @@ var players = (function () {
             var newPos,
                 coor = [my.x, my.y];
             newPos = board.coordinatesToCellPosition(coor);
-            if (newPos !== my.position) {
-                my.player.acted();
+            if (newPos !== my.position && board.moveIsValid(newPos)) {
+                my.player.act();
                 my.position = newPos;
             }
         };
@@ -164,6 +167,7 @@ var players = (function () {
             return my.currentPlayer;
         },
         nextPlayer: function nextPlayer() {
+            my.currentPlayer.act();
             my.currentPlayer = my.currentPlayer === my.player1 ? my.player2 : my.player1;
         }
     };

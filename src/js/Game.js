@@ -10,7 +10,7 @@
         function fixMouse(e) {
             var rect = board.getCanvas().getBoundingClientRect();
             var mx = (e.clientX - rect.left) / (rect.right - rect.left) * board.getCanvas().width,
-                my = e.clientY - rect.top / (rect.bottom - rect.top) * board.getCanvas().height;
+                my = (e.clientY - rect.top) / (rect.bottom - rect.top) * board.getCanvas().height;
             return [mx, my];
         }
         //Game initializers
@@ -20,36 +20,33 @@
 
         //Click event handler
         board.getCanvas().addEventListener('mousedown', function (e) {
-            var mouse, mx, my, tokens, i, dx, dy, moves, wall;
+            var mouse, mx, my, token, dx, dy, moves, wall;
 
             //Shift pointer coordinates to 0,0 at top left of canvas
             mouse = fixMouse(e);
             mx = mouse[0];
             my = mouse[1];
             //Check to see if pointer intersects player tokens
-            tokens = players.getTokens();
-            for (i = 0; i < tokens.length; i++) {
-                dx = mx - tokens[i].getX();
-                dy = my - tokens[i].getY();
-
-                if ((dx * dx + dy * dy) <= Math.pow(tokens[i].getRadius(), 2)) {
-                    selectedToken = tokens[i];
-                    offsetX = dx;
-                    offsetY = dy;
-                    break;
-                }
+            token = players.getCurrentPlayer().getToken();
+            dx = mx - token.getX();
+            dy = my - token.getY();
+            if ((dx * dx + dy * dy) <= Math.pow(token.getRadius(), 2)) {
+                selectedToken = token;
+                offsetX = dx;
+                offsetY = dy;
             }
+
             wall = board.getWallPreview();
-            if (selectedToken) {
-                moves = board.getValidMoves(selectedToken.getPosition(), false);
-                board.setValidMoves(moves);
+            if (typeof selectedToken !== 'undefined') {
+                moves = board.findValidMovePositions(selectedToken.getPosition(), false);
+                console.log('moves '+moves);
+                board.setValidMovePositions(moves);
                 board.drawBoard();
             }
-            else if (wall > -1) {
-                if (board.isWallValid(wall)) {
-                    board.placeWall(wall);
-                    board.drawBoard();
-                }
+            else if (board.wallIsValid(wall)) {
+                board.placeWall(wall);
+                players.getCurrentPlayer().act();
+                board.drawBoard();
             }
 
         });
@@ -58,7 +55,7 @@
         board.getCanvas().addEventListener('mousemove', function (e) {
             var mouse = fixMouse(e),
                 x, y;
-            if (selectedToken) {
+            if (typeof selectedToken !== 'undefined') {
                 x = mouse[0] - offsetX;
                 y = mouse[1] - offsetY;
                 selectedToken.setCoordinates([x,y]);
@@ -71,12 +68,15 @@
 
         //Release event
         board.getCanvas().addEventListener('mouseup', function (e) {
-            if (selectedToken) {
+            if (typeof selectedToken !== 'undefined') {
                 selectedToken.updatePosition();
                 selectedToken.updateCoordinates();
-                board.setValidMoves(undefined);
-                board.drawBoard();
                 selectedToken = undefined;
+                board.setValidMovePositions(undefined);
+                board.drawBoard();
+            }
+            if (players.getCurrentPlayer().hasActed()) {
+                players.nextPlayer();
             }
         });
 
