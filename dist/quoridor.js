@@ -4,6 +4,13 @@
 var ai = (function () {
     'use strict';
 
+    var module = {
+
+    };
+
+    function nextMove() {
+
+    }
 })();
 /**
  * Created by ben on 8/21/15.
@@ -11,7 +18,7 @@ var ai = (function () {
 var board = (function () {
     'use strict';
 
-    var my = {
+    var module = {
         placedWalls: []
     };
 
@@ -21,8 +28,8 @@ var board = (function () {
             walls = [];
 
         //Bottom right wall vertex
-        wall = (pos % my.boardDimension) * 2 +
-            Math.floor(pos / my.boardDimension) * (my.boardDimension - 1) * 2;
+        wall = (pos % module.boardDimension) * 2 +
+            Math.floor(pos / module.boardDimension) * (module.boardDimension - 1) * 2;
         walls.push(wall, (wall + 1));
 
         //Bottom left
@@ -30,7 +37,7 @@ var board = (function () {
         walls.push(wall, (wall + 1));
 
         //Top left
-        wall -= (my.boardDimension - 1) * 2;
+        wall -= (module.boardDimension - 1) * 2;
         walls.push(wall, (wall + 1));
 
         //Top right
@@ -43,9 +50,9 @@ var board = (function () {
     //0:North 1:East 2:South 3:West 4:Identity
     function getUnboundedMoveSet(pos) {
         return [
-            (pos - my.boardDimension),
+            (pos - module.boardDimension),
             (pos + 1),
-            (pos + my.boardDimension),
+            (pos + module.boardDimension),
             (pos - 1),
             pos
         ];
@@ -117,12 +124,12 @@ var board = (function () {
     //0:North 1:East 2:South 3:West
     function getMovePosition(pos, dir) {
         var moves = [
-                (pos - my.boardDimension),
+                (pos - module.boardDimension),
                 (pos + 1),
-                (pos + my.boardDimension),
+                (pos + module.boardDimension),
                 (pos - 1)
             ];
-        if (isMoveOnBoard(pos, moves[dir])) {
+        if (moveIsOnBoard(pos, moves[dir])) {
             return moves[dir];
         }
         else {
@@ -177,7 +184,7 @@ var board = (function () {
         }
         else {
             for (i = 0; i < walls.length; i++) {
-                if (my.placedWalls.indexOf(walls[i]) === -1) {
+                if (module.placedWalls.indexOf(walls[i]) === -1) {
                     invalidWalls.push(walls[i]);
                 }
             }
@@ -204,28 +211,28 @@ var board = (function () {
         return edges;
     }
 
-    function isMoveOnBoard(pos1, pos2) {
+    function moveIsOnBoard(pos1, pos2) {
         var direction = getRelativeDirection(pos1, pos2);
 
         switch (direction) {
             //North is valid if not on top edge
             case 0:
-                return (Math.floor(pos1 / my.boardDimension) > 0);
+                return (Math.floor(pos1 / module.boardDimension) > 0);
             //East is valid if not on right edge
             case 1:
-                return ((pos1 % my.boardDimension) < 8);
+                return ((pos1 % module.boardDimension) < 8);
             //South
             case 2:
-                return (Math.floor(pos1 / my.boardDimension) < 8);
+                return (Math.floor(pos1 / module.boardDimension) < 8);
             //West
             case 3:
-                return ((pos1 % my.boardDimension) > 0);
+                return ((pos1 % module.boardDimension) > 0);
             default:
                 return false;
         }
     }
 
-    function doesWallIntersect(wallIndex) {
+    function wallIntersects(wallIndex) {
         var i,
             conflictWalls;
 
@@ -236,10 +243,10 @@ var board = (function () {
                 wallIndex + 2,
                 wallIndex - 2
             ];
-            if (wallIndex % ((my.boardDimension - 1) * 2) === (((my.boardDimension - 1) * 2) - 2)) {
+            if (wallIndex % ((module.boardDimension - 1) * 2) === (((module.boardDimension - 1) * 2) - 2)) {
                 conflictWalls.splice(2,1);
             }
-            if (wallIndex % ((my.boardDimension - 1) * 2) === 0) {
+            if (wallIndex % ((module.boardDimension - 1) * 2) === 0) {
                 conflictWalls.splice(3,1);
             }
         }
@@ -247,42 +254,40 @@ var board = (function () {
             conflictWalls = [
                 wallIndex,
                 wallIndex - 1,
-                wallIndex - (my.boardDimension - 1) * 2,
-                wallIndex + (my.boardDimension - 1) * 2
+                wallIndex - (module.boardDimension - 1) * 2,
+                wallIndex + (module.boardDimension - 1) * 2
             ];
         }
 
-
-
         for (i = 0; i < conflictWalls.length; i++) {
-            if (my.placedWalls.indexOf(conflictWalls[i]) > -1) {
+            if (module.placedWalls.indexOf(conflictWalls[i]) > -1) {
                 return true;
             }
         }
         return false;
     }
 
-    function isWallValid(wallIndex) {
+    function wallIsValid(wallIndex) {
         return wallIndex > -1 &&
-               !doesWallIntersect(wallIndex) &&
-               checkTokenPaths(wallIndex);
+               !wallIntersects(wallIndex) &&
+               tokensHavePaths(wallIndex);
     }
 
-    function isMoveValid(movePosition) {
-        if (typeof my.validMoves !== 'undefined') {
-            return (my.validMoves.indexOf(movePosition) !== -1);
+    function moveIsValid(movePosition) {
+        if (typeof module.validMoves !== 'undefined') {
+            return (module.validMoves.indexOf(movePosition) !== -1);
         }
         else {
             return false;
         }
     }
 
-    function checkTokenPaths(wallIndex) {
+    function tokensHavePaths(wallIndex) {
         var i,
             tokens = players.getTokens();
 
         for (i = 0; i < tokens.length; i++) {
-            if (!doesTokenHavePathToEnd(tokens[i], wallIndex)) {
+            if (!tokenHasPathToEnd(tokens[i], wallIndex)) {
                 return false;
             }
         }
@@ -290,20 +295,20 @@ var board = (function () {
         return true;
     }
 
-    function doesTokenHavePathToEnd(token, includeWall) {
+    function tokenHasPathToEnd(token, includeWall) {
         var i, node, moves,
             winRange          = token.getWinRange(),
             positionQueue     = [token.getPosition()],
-            examinedPositions = new Array(Math.pow(my.boardDimension, 2) - 1)
+            examinedPositions = new Array(Math.pow(module.boardDimension, 2) - 1)
                                 .join('0').split('').map(parseFloat);
         if (includeWall > -1) {
-            my.placedWalls.push(includeWall);
+            module.placedWalls.push(includeWall);
         }
 
         do {
             node  = positionQueue.shift();
             if (node >= winRange[0] && node <= winRange[1]) {
-                my.placedWalls.splice(my.placedWalls.length - 1, 1);
+                module.placedWalls.splice(module.placedWalls.length - 1, 1);
                 return true;
             }
             moves = findValidMovePositions(node, false);
@@ -314,7 +319,7 @@ var board = (function () {
                 }
             }
         } while (positionQueue.length > 0);
-        my.placedWalls.splice(my.placedWalls.length - 1, 1);
+        module.placedWalls.splice(module.placedWalls.length - 1, 1);
         return false;
     }
 
@@ -326,7 +331,7 @@ var board = (function () {
 
         for (i = 0; i < walls.length; i++) {
             //If an obstructive wall has been placed
-            if (my.placedWalls.indexOf(walls[i]) > -1) {
+            if (module.placedWalls.indexOf(walls[i]) > -1) {
                 //Get blocking direction of wall
                 wallOrientation = getRelativeWallOrientation(posIndex, walls[i]);
                 //And remove that direction from moveset
@@ -376,30 +381,30 @@ var board = (function () {
     }
 
     function coordinatesToWallIndex(coor) {
-        var boardUnit  = my.borderWidth + my.cellWidth,
+        var boardUnit  = module.borderWidth + module.cellWidth,
             index      = 0,
             //X coordinate is inside of a cell border
-            boundTest1 = (coor[0] % boardUnit) <= my.borderWidth,
+            boundTest1 = (coor[0] % boardUnit) <= module.borderWidth,
             //Y coordinate is inside of a cell border
-            boundTest2 = (coor[1] % boardUnit) <= my.borderWidth,
+            boundTest2 = (coor[1] % boardUnit) <= module.borderWidth,
             //X and Y coordinates are greater than the top and left border widths
-            boundTest3 = coor[0] > my.borderWidth && coor[1] > my.borderWidth,
+            boundTest3 = coor[0] > module.borderWidth && coor[1] > module.borderWidth,
             //X and Y coordinates are less than the bottom and right border dimensions
-            boundTest4 = Math.floor(coor[0] / boardUnit) < my.boardDimension &&
-                Math.floor(coor[1] / boardUnit) < my.boardDimension;
+            boundTest4 = Math.floor(coor[0] / boardUnit) < module.boardDimension &&
+                Math.floor(coor[1] / boardUnit) < module.boardDimension;
 
         if ((boundTest1 !== boundTest2) && boundTest3 && boundTest4) {
             //Vertical wall y coordinate component
-            if (Math.floor(coor[1] / boardUnit) > 0 && coor[1] % boardUnit > my.borderWidth) {
-                index += 2 * Math.floor(coor[1] / boardUnit) * (my.boardDimension - 1);
+            if (Math.floor(coor[1] / boardUnit) > 0 && coor[1] % boardUnit > module.borderWidth) {
+                index += 2 * Math.floor(coor[1] / boardUnit) * (module.boardDimension - 1);
             }
             //Horizontal wall y coordinate component
             else if (Math.floor(coor[1] / boardUnit) > 0 ) {
-                index += 2 * (Math.floor(coor[1] / boardUnit) - 1) * (my.boardDimension - 1);
+                index += 2 * (Math.floor(coor[1] / boardUnit) - 1) * (module.boardDimension - 1);
             }
-            if (Math.floor(coor[0] / boardUnit) < my.boardDimension) {
+            if (Math.floor(coor[0] / boardUnit) < module.boardDimension) {
                 //Horizontal wall x coordinate component
-                if (coor[0] % boardUnit > my.borderWidth) {
+                if (coor[0] % boardUnit > module.borderWidth) {
                     index += 2 * Math.floor(coor[0] / boardUnit);
                 }
                 //Vertical wall x coordinate component
@@ -409,19 +414,19 @@ var board = (function () {
             }
             //If X or Y coordinates are in the last board unit
             //use the index of the previous wall
-            if (Math.floor(coor[0] / boardUnit) === (my.boardDimension - 1) &&
-                coor[0] % boardUnit > my.borderWidth) {
+            if (Math.floor(coor[0] / boardUnit) === (module.boardDimension - 1) &&
+                coor[0] % boardUnit > module.borderWidth) {
                 index -= 2;
             }
-            else if (Math.floor(coor[1] / boardUnit) === (my.boardDimension - 1) &&
-                coor[1] % boardUnit > my.borderWidth) {
-                index -= (my.boardDimension - 1) * 2;
+            else if (Math.floor(coor[1] / boardUnit) === (module.boardDimension - 1) &&
+                coor[1] % boardUnit > module.borderWidth) {
+                index -= (module.boardDimension - 1) * 2;
             }
         }
         else {
             //If pointer is at wall vertex, use currently previewed index
-            if (boundTest1 && boundTest2 && my.wallPreview > -1) {
-                return my.wallPreview;
+            if (boundTest1 && boundTest2 && module.wallPreview > -1) {
+                return module.wallPreview;
             }
             else {
                 return -1;
@@ -432,63 +437,84 @@ var board = (function () {
 
     function indexToWallCoordinates(idx) {
         var x, y,
-            boardUnit = my.borderWidth + my.cellWidth;
+            boardUnit = module.borderWidth + module.cellWidth;
         if (idx % 2 === 0) {
-            x = my.borderWidth + ((idx % ((my.boardDimension - 1) * 2)) / 2) * boardUnit;
-            y = ( 1 + Math.floor(idx / ((my.boardDimension - 1) * 2))) * boardUnit;
+            x = module.borderWidth + ((idx % ((module.boardDimension - 1) * 2)) / 2) * boardUnit;
+            y = ( 1 + Math.floor(idx / ((module.boardDimension - 1) * 2))) * boardUnit;
         }
         else {
-            x = ((((idx % ((my.boardDimension - 1) * 2)) - 1) / 2) + 1) * boardUnit;
-            y = my.borderWidth + Math.floor(idx / ((my.boardDimension - 1) * 2)) * boardUnit;
+            x = ((((idx % ((module.boardDimension - 1) * 2)) - 1) / 2) + 1) * boardUnit;
+            y = module.borderWidth + Math.floor(idx / ((module.boardDimension - 1) * 2)) * boardUnit;
         }
         return [x,y];
     }
 
     function positionToRectCellCoordinates(pos) {
-        var pos1 = pos % my.boardDimension ,
-            pos2 = Math.floor(pos / my.boardDimension),
-            x    = pos1 * my.cellWidth + (pos1 + 1) * my.borderWidth,
-            y    = pos2 * my.cellWidth + (pos2 + 1) * my.borderWidth;
+        var pos1 = pos % module.boardDimension ,
+            pos2 = Math.floor(pos / module.boardDimension),
+            x    = pos1 * module.cellWidth + (pos1 + 1) * module.borderWidth,
+            y    = pos2 * module.cellWidth + (pos2 + 1) * module.borderWidth;
         return [x,y];
     }
 
     function getValidMoveCoordinates() {
         var moves = [],
             i;
-        if (typeof my.validMoves === 'undefined') {
+        if (typeof module.validMoves === 'undefined') {
             return undefined;
         }
-        for (i = 0; i < my.validMoves.length; i++) {
-            moves.push(positionToRectCellCoordinates(my.validMoves[i]));
+        for (i = 0; i < module.validMoves.length; i++) {
+            moves.push(positionToRectCellCoordinates(module.validMoves[i]));
         }
         return moves;
+    }
+
+    function drawHud() {
+        var x, y, i,
+            player1Walls = players.getPlayer1().getWallCount(),
+            player2Walls = players.getPlayer2().getWallCount();
+
+        module.hudContext.fillStyle = 'black';
+        module.hudContext.fillRect(0, 0, module.boardSize / 3, module.boardSize);
+
+        for (i = 0; i < player2Walls; i++) {
+            x = module.borderWidth + (i % 5) * 2 * module.borderWidth;
+            y = module.cellWidth * 2.5 * (0.3 + Math.floor(i / 5));
+            drawWall([x,y], module.hudContext, players.getPlayer2().getColor(), true);
+        }
+
+        for (i = 0; i < player1Walls; i++) {
+            x = module.borderWidth + (i % 5) * 2 * module.borderWidth;
+            y = module.cellWidth * 5 + module.cellWidth * 2.5 * (0.3 + Math.floor(i / 5));
+            drawWall([x,y], module.hudContext, players.getPlayer1().getColor(), true);
+        }
+    }
+
+    function drawWall(coor, ctx, fill, vertical) {
+        ctx.fillStyle = fill;
+        if (vertical === true) {
+            ctx.fillRect(coor[0], coor[1], module.borderWidth, module.cellWidth * 2 + module.borderWidth);
+        }
+        else {
+            ctx.fillRect(coor[0], coor[1], module.cellWidth * 2 + module.borderWidth, module.borderWidth);
+        }
     }
 
     function drawBoard() {
         var i, j, k, x, y, coor, tokens, validMoveCoordinates;
 
         function drawCell(coor, fill) {
-            my.boardContext.fillStyle = fill;
-            my.boardContext.fillRect(coor[0], coor[1], my.cellWidth, my.cellWidth);
+            module.boardContext.fillStyle = fill;
+            module.boardContext.fillRect(coor[0], coor[1], module.cellWidth, module.cellWidth);
         }
 
-        function drawWall(coor, fill, vertical) {
-            my.boardContext.fillStyle = fill;
-            if (vertical === true) {
-                my.boardContext.fillRect(coor[0], coor[1], my.borderWidth, my.cellWidth * 2 + my.borderWidth);
-            }
-            else {
-                my.boardContext.fillRect(coor[0], coor[1], my.cellWidth * 2 + my.borderWidth, my.borderWidth);
-            }
-        }
-
-        my.boardContext.fillStyle = 'black';
-        my.boardContext.fillRect(0, 0, my.boardSize, my.boardSize);
-        for (i = 0; i < my.boardDimension; i++) {
-            for (j = 0; j < my.boardDimension; j++) {
+        module.boardContext.fillStyle = 'black';
+        module.boardContext.fillRect(0, 0, module.boardSize, module.boardSize);
+        for (i = 0; i < module.boardDimension; i++) {
+            for (j = 0; j < module.boardDimension; j++) {
                 //Cell Coordinates
-                x = my.borderWidth * (j + 1) + my.cellWidth * j;
-                y = my.borderWidth * (i + 1) + my.cellWidth * i;
+                x = module.borderWidth * (j + 1) + module.cellWidth * j;
+                y = module.borderWidth * (i + 1) + module.cellWidth * i;
                 validMoveCoordinates = getValidMoveCoordinates();
                 //Draw highlighted cells
                 if (typeof validMoveCoordinates !== 'undefined') {
@@ -508,99 +534,105 @@ var board = (function () {
             }
         }
 
-        if (typeof my.wallPreview !== 'undefined' && my.wallPreview > -1) {
-            coor = indexToWallCoordinates(my.wallPreview);
-            if (my.wallPreview % 2 === 0) {
-                drawWall(coor, players.getCurrentPlayer().getColor(), false);
+        if (typeof module.wallPreview !== 'undefined' && module.wallPreview > -1) {
+            coor = indexToWallCoordinates(module.wallPreview);
+            if (module.wallPreview % 2 === 0) {
+                drawWall(coor, module.boardContext, players.getCurrentPlayer().getColor(), false);
             }
             else {
-                drawWall(coor, players.getCurrentPlayer().getColor(), true);
+                drawWall(coor, module.boardContext, players.getCurrentPlayer().getColor(), true);
             }
         }
 
-        if (my.placedWalls.length > 0) {
-            for (i = 0; i < my.placedWalls.length; i++) {
-                coor = indexToWallCoordinates(my.placedWalls[i]);
-                if (my.placedWalls[i] % 2 === 0) {
-                    drawWall(coor, 'white', false);
+        if (module.placedWalls.length > 0) {
+            for (i = 0; i < module.placedWalls.length; i++) {
+                coor = indexToWallCoordinates(module.placedWalls[i]);
+                if (module.placedWalls[i] % 2 === 0) {
+                    drawWall(coor, module.boardContext, 'white', false);
                 }
                 else {
-                    drawWall(coor, 'white', true);
+                    drawWall(coor, module.boardContext, 'white', true);
                 }
             }
         }
 
         tokens = players.getTokens();
         if (typeof tokens !== 'undefined') {
-            tokens[0].drawToken(my.boardContext);
-            tokens[1].drawToken(my.boardContext);
+            tokens[0].drawToken(module.boardContext);
+            tokens[1].drawToken(module.boardContext);
         }
+    }
+
+    function updateDisplay() {
+        drawBoard();
+        drawHud();
     }
 
     //Public methods
     return {
         init: function init(cw, dim) {
-            my.cellWidth              = cw;
-            my.boardDimension         = dim;
-            my.borderWidth            = cw / 5;
-            my.topStartPos            = Math.floor(my.boardDimension / 2);
-            my.botStartPos            = Math.floor(my.boardDimension / 2) +
-                                        my.boardDimension * (my.boardDimension - 1);
-            my.boardSize              = my.cellWidth * my.boardDimension +
-                                        my.borderWidth * (my.boardDimension + 1);
+            module.cellWidth              = cw;
+            module.boardDimension         = dim;
+            module.borderWidth            = cw / 5;
+            module.topStartPos            = Math.floor(module.boardDimension / 2);
+            module.botStartPos            = Math.floor(module.boardDimension / 2) +
+                                        module.boardDimension * (module.boardDimension - 1);
+            module.boardSize              = module.cellWidth * module.boardDimension +
+                                        module.borderWidth * (module.boardDimension + 1);
             //HUD Canvas (Wall count)
-            my.hudCanvas              = document.createElement('canvas');
-            my.hudCanvas.id           = 'hud';
-            my.hudCanvas.height       = my.boardSize;
-            my.hudCanvas.width        = my.boardSize / 3;
-            my.hudContext             = my.hudCanvas.getContext('2d');
-            my.hudContext.fillStyle   = 'black';
-            my.hudContext.fillRect(0,0,my.boardSize/3,my.boardSize);
-            document.body.appendChild(my.hudCanvas);
+            module.hudCanvas              = document.createElement('canvas');
+            module.hudCanvas.id           = 'hud';
+            module.hudCanvas.height       = module.boardSize;
+            module.hudCanvas.width        = module.boardSize / 3;
+            module.hudContext             = module.hudCanvas.getContext('2d');
+            module.hudContext.fillStyle   = 'black';
+            module.hudContext.fillRect(0, 0, module.boardSize / 3, module.boardSize);
+            document.body.appendChild(module.hudCanvas);
 
             //Board Canvas
-            my.boardCanvas            = document.createElement('canvas');
-            my.boardCanvas.id         = 'board';
-            my.boardCanvas.height     = my.boardSize;
-            my.boardCanvas.width      = my.boardSize;
-            my.boardContext           = my.boardCanvas.getContext('2d');
-            my.boardContext.fillStyle = 'black';
-            my.boardContext.fillRect(0, 0, my.boardSize, my.boardSize);
-            document.body.appendChild(my.boardCanvas);
+            module.boardCanvas            = document.createElement('canvas');
+            module.boardCanvas.id         = 'board';
+            module.boardCanvas.height     = module.boardSize;
+            module.boardCanvas.width      = module.boardSize;
+            module.boardContext           = module.boardCanvas.getContext('2d');
+            module.boardContext.fillStyle = 'black';
+            module.boardContext.fillRect(0, 0, module.boardSize, module.boardSize);
+            document.body.appendChild(module.boardCanvas);
 
         },
         drawBoard: drawBoard,
+        updateDisplay: updateDisplay,
         getCanvas: function getCanvas() {
-            return my.boardCanvas;
+            return module.boardCanvas;
         },
         getContext: function getContext() {
-            return my.boardContext;
+            return module.boardContext;
         },
         getDimension: function getDimension() {
-            return my.boardDimension;
+            return module.boardDimension;
         },
         getCellWidth: function getCellWidth() {
-            return my.cellWidth;
+            return module.cellWidth;
         },
         getBorderWidth: function getBorderWidth() {
-            return my.borderWidth;
+            return module.borderWidth;
         },
         getBotPos: function getBotPos() {
-            return my.botStartPos;
+            return module.botStartPos;
         },
         getTopPos: function getTopPos() {
-            return my.topStartPos;
+            return module.topStartPos;
         },
         //Pixel coordinates on canvas return board position
         coordinatesToCellPosition: function coordinatesToCellPosition(coor) {
-            var boardUnit = my.borderWidth + my.cellWidth,
-                position  = Math.floor(coor[0] / boardUnit) + Math.floor(coor[1] / boardUnit) * my.boardDimension,
+            var boardUnit = module.borderWidth + module.cellWidth,
+                position  = Math.floor(coor[0] / boardUnit) + Math.floor(coor[1] / boardUnit) * module.boardDimension,
                 boundTest,
                 i;
 
             for (i = 0; i < 2; i++) {
                 boundTest = coor[i] % boardUnit;
-                if (boundTest <= my.borderWidth) {
+                if (boundTest <= module.borderWidth) {
                     return undefined;
                 }
             }
@@ -610,37 +642,37 @@ var board = (function () {
         coordinatesToWallIndex: coordinatesToWallIndex,
         //Returns center coordinates of cell
         positionToCellCoordinates: function positionToCellCoordinates(pos) {
-            var pos1 = pos % my.boardDimension,
-                pos2 = Math.floor(pos / my.boardDimension),
-                x = (pos1 + 0.5) * my.cellWidth + (pos1 + 1) * my.borderWidth,
-                y = (pos2 + 0.5) * my.cellWidth + (pos2 + 1) * my.borderWidth;
+            var pos1 = pos % module.boardDimension,
+                pos2 = Math.floor(pos / module.boardDimension),
+                x = (pos1 + 0.5) * module.cellWidth + (pos1 + 1) * module.borderWidth,
+                y = (pos2 + 0.5) * module.cellWidth + (pos2 + 1) * module.borderWidth;
             return [x,y];
         },
         //Returns top left coordinates of cell
         positionToRectCellCoordinates: positionToRectCellCoordinates,
         setValidMovePositions: function setValidMovePositions(mvs) {
             if (typeof mvs !== 'undefined') {
-                my.validMoves = mvs.slice();
+                module.validMoves = mvs.slice();
             }
             else {
-                my.validMoves = undefined;
+                module.validMoves = undefined;
             }
         },
         getValidMovePositions: function getValidMovePositions() {
-            return my.validMoves;
+            return module.validMoves;
         },
         getValidMoveCoordinates: getValidMoveCoordinates,
         setWallPreview: function setWallPreview(coor) {
             if (coor.constructor === Array) {
-                my.wallPreview = coordinatesToWallIndex(coor);
+                module.wallPreview = coordinatesToWallIndex(coor);
             }
             else {
-                my.wallPreview = undefined;
+                module.wallPreview = undefined;
             }
         },
         getWallPreview: function getWallPreview() {
-            if (my.wallPreview > -1) {
-                return my.wallPreview;
+            if (module.wallPreview > -1) {
+                return module.wallPreview;
             }
             else {
                 return undefined;
@@ -648,14 +680,14 @@ var board = (function () {
         },
         placeWall: function placeWall(wall) {
             if (wall > -1) {
-                my.placedWalls.push(wall);
+                module.placedWalls.push(wall);
             }
         },
         getAdjacentWalls: getAdjacentWalls,
         findValidMovePositions: findValidMovePositions,
-        isMoveOnBoard: isMoveOnBoard,
-        isWallValid: isWallValid,
-        isMoveValid: isMoveValid
+        moveIsOnBoard: moveIsOnBoard,
+        wallIsValid: wallIsValid,
+        moveIsValid: moveIsValid
     };
 
 })();
@@ -677,7 +709,7 @@ var board = (function () {
         //Game initializers
         board.init(55, 9); //Cell width, board dimension
         players.init('human','ai');
-        board.drawBoard();
+        board.updateDisplay();
 
         //Click event handler
         board.getCanvas().addEventListener('mousedown', function (e) {
@@ -702,12 +734,13 @@ var board = (function () {
                 moves = board.findValidMovePositions(selectedToken.getPosition(), false);
                 console.log('moves '+moves);
                 board.setValidMovePositions(moves);
-                board.drawBoard();
+                board.updateDisplay();
             }
-            else if (board.isWallValid(wall)) {
+            else if (board.wallIsValid(wall)) {
                 board.placeWall(wall);
                 players.getCurrentPlayer().act();
-                board.drawBoard();
+                players.getCurrentPlayer().useWall();
+                board.updateDisplay();
             }
 
         });
@@ -724,7 +757,7 @@ var board = (function () {
             else {
                 board.setWallPreview(mouse);
             }
-            board.drawBoard();
+            board.updateDisplay();
         });
 
         //Release event
@@ -734,7 +767,7 @@ var board = (function () {
                 selectedToken.updateCoordinates();
                 selectedToken = undefined;
                 board.setValidMovePositions(undefined);
-                board.drawBoard();
+                board.updateDisplay();
             }
             if (players.getCurrentPlayer().hasActed()) {
                 players.nextPlayer();
@@ -751,14 +784,15 @@ var board = (function () {
 var players = (function () {
     'use strict';
 
-    var my = {
+    var module = {
         player1: undefined,
         player2: undefined,
-        currentPlayer: undefined
+        currentPlayer: undefined,
+        startingWalls: 10
     };
 
     function getTokens() {
-        return [my.player1.getToken(), my.player2.getToken()];
+        return [module.player1.getToken(), module.player2.getToken()];
     }
 
     function getWinningRange(startPos) {
@@ -776,6 +810,7 @@ var players = (function () {
             color: clr,
             token: new Token(pos, range, clr, this),
             hasActed: false,
+            wallCount: module.startingWalls
         };
 
         this.getToken = function getToken() {
@@ -792,6 +827,15 @@ var players = (function () {
 
         this.hasActed = function hasActed() {
             return my.hasActed;
+        };
+
+        this.getWallCount = function getWallCount() {
+            return my.wallCount;
+        };
+
+        this.useWall = function useWall() {
+            my.wallCount--;
+            console.log('wall count '+my.wallCount);
         };
     }
 
@@ -859,7 +903,7 @@ var players = (function () {
             var newPos,
                 coor = [my.x, my.y];
             newPos = board.coordinatesToCellPosition(coor);
-            if (newPos !== my.position && board.isMoveValid(newPos)) {
+            if (newPos !== my.position && board.moveIsValid(newPos)) {
                 my.player.act();
                 my.position = newPos;
             }
@@ -880,8 +924,8 @@ var players = (function () {
     //Return public methods
     return {
         init: function init(p1, p2) {
-            my.player1 = playerType(p1, 'red', board.getBotPos());
-            my.player2 = playerType(p2, 'blue', board.getTopPos());
+            module.player1 = playerType(p1, 'red', board.getBotPos());
+            module.player2 = playerType(p2, 'blue', board.getTopPos());
 
             function playerType(type, color, pos) {
                 if (type === 'human') {
@@ -891,13 +935,13 @@ var players = (function () {
                     return new ComputerPlayer(color, pos, getWinningRange(pos));
                 }
             }
-            my.currentPlayer = my.player1;
+            module.currentPlayer = module.player1;
         },
         getPlayer1: function getPlayer1() {
-            return my.player1;
+            return module.player1;
         },
         getPlayer2: function getPlayer2() {
-            return my.player2;
+            return module.player2;
         },
         getTokens: getTokens,
         getTokenAtPosition: function getTokenAtPosition(pos) {
@@ -911,11 +955,11 @@ var players = (function () {
             return undefined;
         },
         getCurrentPlayer: function getCurrentPlayer() {
-            return my.currentPlayer;
+            return module.currentPlayer;
         },
         nextPlayer: function nextPlayer() {
-            my.currentPlayer.act();
-            my.currentPlayer = my.currentPlayer === my.player1 ? my.player2 : my.player1;
+            module.currentPlayer.act();
+            module.currentPlayer = module.currentPlayer === module.player1 ? module.player2 : module.player1;
         }
     };
 

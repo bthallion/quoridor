@@ -4,4 +4,11 @@
 var ai = (function () {
     'use strict';
 
+    var module = {
+
+    };
+
+    function nextMove() {
+
+    }
 })();

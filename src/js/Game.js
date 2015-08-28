@@ -16,7 +16,7 @@
         //Game initializers
         board.init(55, 9); //Cell width, board dimension
         players.init('human','ai');
-        board.drawBoard();
+        board.updateDisplay();
 
         //Click event handler
         board.getCanvas().addEventListener('mousedown', function (e) {
@@ -41,12 +41,13 @@
                 moves = board.findValidMovePositions(selectedToken.getPosition(), false);
                 console.log('moves '+moves);
                 board.setValidMovePositions(moves);
-                board.drawBoard();
+                board.updateDisplay();
             }
             else if (board.wallIsValid(wall)) {
                 board.placeWall(wall);
                 players.getCurrentPlayer().act();
-                board.drawBoard();
+                players.getCurrentPlayer().useWall();
+                board.updateDisplay();
             }
 
         });
@@ -63,7 +64,7 @@
             else {
                 board.setWallPreview(mouse);
             }
-            board.drawBoard();
+            board.updateDisplay();
         });
 
         //Release event
@@ -73,7 +74,7 @@
                 selectedToken.updateCoordinates();
                 selectedToken = undefined;
                 board.setValidMovePositions(undefined);
-                board.drawBoard();
+                board.updateDisplay();
             }
             if (players.getCurrentPlayer().hasActed()) {
                 players.nextPlayer();

@@ -4,14 +4,15 @@
 var players = (function () {
     'use strict';
 
-    var my = {
+    var module = {
         player1: undefined,
         player2: undefined,
-        currentPlayer: undefined
+        currentPlayer: undefined,
+        startingWalls: 10
     };
 
     function getTokens() {
-        return [my.player1.getToken(), my.player2.getToken()];
+        return [module.player1.getToken(), module.player2.getToken()];
     }
 
     function getWinningRange(startPos) {
@@ -29,6 +30,7 @@ var players = (function () {
             color: clr,
             token: new Token(pos, range, clr, this),
             hasActed: false,
+            wallCount: module.startingWalls
         };
 
         this.getToken = function getToken() {
@@ -45,6 +47,15 @@ var players = (function () {
 
         this.hasActed = function hasActed() {
             return my.hasActed;
+        };
+
+        this.getWallCount = function getWallCount() {
+            return my.wallCount;
+        };
+
+        this.useWall = function useWall() {
+            my.wallCount--;
+            console.log('wall count '+my.wallCount);
         };
     }
 
@@ -133,8 +144,8 @@ var players = (function () {
     //Return public methods
     return {
         init: function init(p1, p2) {
-            my.player1 = playerType(p1, 'red', board.getBotPos());
-            my.player2 = playerType(p2, 'blue', board.getTopPos());
+            module.player1 = playerType(p1, 'red', board.getBotPos());
+            module.player2 = playerType(p2, 'blue', board.getTopPos());
 
             function playerType(type, color, pos) {
                 if (type === 'human') {
@@ -144,13 +155,13 @@ var players = (function () {
                     return new ComputerPlayer(color, pos, getWinningRange(pos));
                 }
             }
-            my.currentPlayer = my.player1;
+            module.currentPlayer = module.player1;
         },
         getPlayer1: function getPlayer1() {
-            return my.player1;
+            return module.player1;
         },
         getPlayer2: function getPlayer2() {
-            return my.player2;
+            return module.player2;
         },
         getTokens: getTokens,
         getTokenAtPosition: function getTokenAtPosition(pos) {
@@ -164,11 +175,11 @@ var players = (function () {
             return undefined;
         },
         getCurrentPlayer: function getCurrentPlayer() {
-            return my.currentPlayer;
+            return module.currentPlayer;
         },
         nextPlayer: function nextPlayer() {
-            my.currentPlayer.act();
-            my.currentPlayer = my.currentPlayer === my.player1 ? my.player2 : my.player1;
+            module.currentPlayer.act();
+            module.currentPlayer = module.currentPlayer === module.player1 ? module.player2 : module.player1;
         }
     };
 
