@@ -4,142 +4,345 @@
 var ai = (function () {
     'use strict';
 
-    var module = {
+    var module = {},
+        boardValuesHash,
+        processStatus = function (response, err) {
+            console.log(response);
+            // status "0" to handle local files fetching (e.g. Cordova/Phonegap etc.)
+            if (response.status === 200 || response.status === 0) {
+                return Promise.resolve(response);
+            } else {
+                return Promise.reject(err);
+            }
+        };
 
-    };
+    getTreeHash();
 
-    function nextMove() {
+    function getTreeHash() {
+        var myInit = { method: 'GET',
+            mode: 'cors',
+            cache: 'default' };
 
-    }
-})();
-/**
- * Created by ben on 8/21/15.
- */
-var board = (function () {
-    'use strict';
-
-    var module = {
-        placedWalls: []
-    };
-
-    //Returns surrounding wall indexes regardless of position on board
-    function getUnboundedAdjacentWalls(pos) {
-        var wall,
-            walls = [];
-
-        //Bottom right wall vertex
-        wall = (pos % module.boardDimension) * 2 +
-            Math.floor(pos / module.boardDimension) * (module.boardDimension - 1) * 2;
-        walls.push(wall, (wall + 1));
-
-        //Bottom left
-        wall -= 2;
-        walls.push(wall, (wall + 1));
-
-        //Top left
-        wall -= (module.boardDimension - 1) * 2;
-        walls.push(wall, (wall + 1));
-
-        //Top right
-        wall += 2;
-        walls.push(wall, (wall + 1));
-
-        return walls;
+        window.fetch('treehash', myInit)
+            .then(processStatus)
+            .then(function (res) {
+                return res.json();
+            })
+            .then(function (hash) {
+                boardValuesHash = new HashMap(hash);
+            });
     }
 
-    //0:North 1:East 2:South 3:West 4:Identity
-    function getUnboundedMoveSet(pos) {
-        return [
-            (pos - module.boardDimension),
-            (pos + 1),
-            (pos + module.boardDimension),
-            (pos - 1),
-            pos
-        ];
+    function TreeNode(brdStr) {
+        var boardString = brdStr,
+            children = [],
+            parent,
+            simulations,
+            netWins;
+
+        this.getValue = function getValue() {
+
+        };
+
     }
 
-    //Returns moveset with respect to board position, ignores walls
-    function getMoveSet(pos) {
-        var i,
-            unboundedMoveset = getUnboundedMoveSet(pos),
-            moveset          = unboundedMoveset.slice(),
-            edges            = getAdjacentBoardEdges(pos);
+    function Tree() {
 
-        for (i = 0; i < edges.length; i++) {
-            moveset.splice(moveset.indexOf(unboundedMoveset[edges[i]]), 1);
+    }
+
+    function HashMap(itms) {
+        var items;
+
+        if (typeof itms === 'object') {
+            items = JSON.parse(JSON.stringify(itms));
+        }
+        else {
+            items = {
+                totalSimulations: 0
+            };
         }
 
-        return moveset;
+        this.getItem = function getItem(key) {
+            return items[key];
+        };
+
+        this.setItem = function setItem(key, value) {
+            var temp;
+            if (typeof items[key] !== 'undefined') {
+                items[key] = value;
+            }
+            else {
+                temp = items[key];
+                items[key] = value;
+            }
+            return temp;
+        };
+
+        this.hasItem = function hasItem(key) {
+            return typeof items[key] !== 'undefined';
+        };
+    }
+
+    //Monte Carlo Tree Search algorithm
+    function MCTS() {
+        var totalSimulations,
+            //Large values give uniform search, small values prioritize node value
+            exploreC,
+            bestNodeValue;
+
+
+    }
+
+})();
+/**
+* Created by ben on 9/2/15.
+*/
+//functions to keep track of last move, and undo
+//create abstract board for simulations?
+var board;
+
+function boardConstructor(data) {
+    var my = {};
+    init();
+
+    function init() {
+        var key;
+        my.placedWalls = [];
+        my.validMoves = [];
+        for (key in data) {
+            if (data.hasOwnProperty(key)) {
+                my[key] = data[key];
+            }
+        }
     }
 
     //Returned values:
-    //0 is Horizontal Top
-    //1 is Vertical Right
-    //2 is Horizontal Bottom
-    //3 is Vertical Left
-    //-1 is Non-adjacent
-    function getRelativeWallOrientation(posIndex, wallIndex) {
-        var unboundedWalls = getUnboundedAdjacentWalls(posIndex),
-            i;
-        for (i = 0; i < unboundedWalls.length; i++) {
-            if (unboundedWalls[i] === wallIndex) {
-                switch (i) {
-                    case 4:
-                    case 6:
-                        return 0;
-                    case 1:
-                    case 7:
-                        return 1;
-                    case 0:
-                    case 2:
-                        return 2;
-                    case 3:
-                    case 5:
-                        return 3;
+    //0:Top 1:Right 2:Bottom 3:Left
+    function getAdjacentBoardEdges(pos) {
+        var i,
+            edges = [];
+
+        //Check if moves are on board
+        for (i = 0; i < 4; i++) {
+            if (getMovePosition(pos, i) === -1) {
+                edges.push(i);
+            }
+        }
+
+        return edges;
+    }
+
+    function moveIsOnBoard(pos1, pos2) {
+        var direction = getRelativeDirection(pos1, pos2);
+
+        switch (direction) {
+            //North is valid if not on top edge
+            case 0:
+                return (Math.floor(pos1 / global.BOARD_DIMENSION) > 0);
+            //East is valid if not on right edge
+            case 1:
+                return ((pos1 % global.BOARD_DIMENSION) < 8);
+            //South
+            case 2:
+                return (Math.floor(pos1 / global.BOARD_DIMENSION) < 8);
+            //West
+            case 3:
+                return ((pos1 % global.BOARD_DIMENSION) > 0);
+            default:
+                return false;
+        }
+    }
+
+    function wallIntersects(wallIndex) {
+        var i,
+            conflictWalls;
+
+        if ((wallIndex % 2) === 0) {
+            conflictWalls = [
+                wallIndex,
+                wallIndex + 1,
+                wallIndex + 2,
+                wallIndex - 2
+            ];
+            if (wallIndex % ((global.BOARD_DIMENSION - 1) * 2) === (((global.BOARD_DIMENSION - 1) * 2) - 2)) {
+                conflictWalls.splice(2,1);
+            }
+            if (wallIndex % ((global.BOARD_DIMENSION - 1) * 2) === 0) {
+                conflictWalls.splice(3,1);
+            }
+        }
+        else {
+            conflictWalls = [
+                wallIndex,
+                wallIndex - 1,
+                wallIndex - (global.BOARD_DIMENSION - 1) * 2,
+                wallIndex + (global.BOARD_DIMENSION - 1) * 2
+            ];
+        }
+
+        for (i = 0; i < conflictWalls.length; i++) {
+            if (my.placedWalls.indexOf(conflictWalls[i]) > -1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function wallIsValid(wallIndex) {
+        return wallIndex > -1 &&
+            !wallIntersects(wallIndex) &&
+            tokensHavePaths(wallIndex);
+    }
+
+    function moveIsValid(movePosition) {
+        if (my.validMoves.length > 0) {
+            return (my.validMoves.indexOf(movePosition) !== -1);
+        }
+        else {
+            return false;
+        }
+    }
+
+    function tokensHavePaths(wallIndex) {
+        var i, tokens;
+
+        if (data.simulated !== false) {
+            tokens = [data.token1, data.token2];
+        }
+        else {
+            tokens = players.getTokens();
+        }
+
+        for (i = 0; i < tokens.length; i++) {
+            if (!tokenHasPathToEnd(tokens[i], wallIndex)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    function tokenHasPathToEnd(token, includeWall) {
+        var i, node, moves,
+            winRange          = token.getWinRange(),
+            positionQueue     = [token.getPosition()],
+            examinedPositions = new Array(Math.pow(global.BOARD_DIMENSION, 2) - 1)
+                .join('0').split('').map(parseFloat);
+
+        if (includeWall > -1) {
+            my.placedWalls.push(includeWall);
+        }
+
+        do {
+            node  = positionQueue.shift();
+            if (node >= winRange[0] && node <= winRange[1]) {
+                my.placedWalls.splice(my.placedWalls.length - 1, 1);
+                return true;
+            }
+            moves = findValidMoves(node, false, true);
+            for (i = 0; i < moves.length; i++) {
+                if (examinedPositions[moves[i]] !== 1) {
+                    examinedPositions[moves[i]] = 1;
+                    positionQueue = positionQueue.concat(findValidMoves(moves[i], false, true));
+                }
+            }
+        } while (positionQueue.length > 0);
+        my.placedWalls.splice(my.placedWalls.length - 1, 1);
+        return false;
+    }
+
+    function getTokenAtPosition(pos) {
+        var tokens, i;
+
+        if (data.simulated) {
+            tokens = [data.token1, data.token2];
+        }
+        else {
+            tokens = players.getTokens();
+        }
+
+        for (i = 0; i < tokens.length; i++) {
+            if (pos === tokens[i].getPosition()) {
+                return tokens[i];
+            }
+        }
+        return undefined;
+    }
+
+    function findValidMoves(posIndex, ignoreJump, discardMoves) {
+        var moves = getMoveSet(posIndex),
+            walls = getAdjacentWalls(posIndex, false),
+            i, j, k, jumpSpace,
+            opponentDirection, opponentMoves, wallOrientation;
+
+        for (i = 0; i < walls.length; i++) {
+            //If an obstructive wall has been placed
+            if (my.placedWalls.indexOf(walls[i]) > -1) {
+                //Get blocking direction of wall
+                wallOrientation = getRelativeWallOrientation(posIndex, walls[i]);
+                //And remove that direction from moveset
+                moves.splice(moves.indexOf(getMovePosition(posIndex, wallOrientation)), 1);
+            }
+        }
+
+        //Check for adjacent player, add valid jump moves
+        if (ignoreJump === false) {
+            for (i = 0; i < moves.length; i++) {
+                //If there is an adjacent player
+                if (typeof getTokenAtPosition(moves[i]) !== 'undefined' && moves[i] !== posIndex) {
+                    //Get opponent direction and walls around its position
+                    opponentDirection = getRelativeDirection(posIndex, moves[i]);
+                    walls             = getAdjacentWalls(moves[i], false);
+                    for (j = 0; j < walls.length; j++) {
+                        wallOrientation = getRelativeWallOrientation(moves[i], walls[j]);
+                        //If wall obstructs jump, add opponent's moveset to current player's
+                        if (opponentDirection === wallOrientation) {
+                            opponentMoves = findValidMoves(moves[i], true, true);
+                        }
+                    }
+                    //If jump is clear, add jump to moveset
+                    //remove opponent's position
+                    //If jump is off the board (which is an unclear case in the rules!) add opponents moves
+                    if (typeof opponentMoves === 'undefined') {
+                        jumpSpace = getMovePosition(moves[i], opponentDirection);
+                        if (jumpSpace > -1) {
+                            moves.splice(i, 1, jumpSpace);
+                        }
+                        else {
+                            opponentMoves = findValidMoves(moves[i], true, true);
+                        }
+                    }
+                    if (typeof opponentMoves !== 'undefined') {
+                        for (k = 0; k < opponentMoves.length; k++) {
+                            if (moves.indexOf(opponentMoves[k]) === -1) {
+                                moves.push(opponentMoves[k]);
+                            }
+                        }
+                        moves.splice(i, 1);
+                    }
                 }
             }
         }
-        return -1;
-    }
-
-    //Returned values:
-    //0 is North
-    //1 is East
-    //2 is South
-    //3 is West
-    //4 is Identical
-    //-1 is non-cardinal or non-adjacent
-    function getRelativeDirection(pos1, pos2) {
-        var i,
-            moves = getUnboundedMoveSet(pos1);
-        for (i = 0; i < moves.length; i++) {
-            if (moves[i] === pos2) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    //Direction indexes
-    //0:North 1:East 2:South 3:West
-    function getMovePosition(pos, dir) {
-        var moves = [
-                (pos - module.boardDimension),
-                (pos + 1),
-                (pos + module.boardDimension),
-                (pos - 1)
-            ];
-        if (moveIsOnBoard(pos, moves[dir])) {
-            return moves[dir];
+        if (discardMoves === true) {
+            return moves;
         }
         else {
-            return -1;
+            setValidMoves(moves);
+        }
+    }
+
+    function setValidMoves(moves) {
+        if (moves.constructor === Array) {
+            my.validMoves = moves.slice();
+        }
+        else {
+            my.validMoves = [];
         }
     }
 
     function getAdjacentWalls(posIndex, includePotentialWalls) {
         var i,
-            //0,1:Southeast 2,3:Southwest 4,5:Northwest 6,7:Northeast Wall Vertices
+        //0,1:Southeast 2,3:Southwest 4,5:Northwest 6,7:Northeast Wall Vertices
             unboundedWalls = getUnboundedAdjacentWalls(posIndex),
             walls          = unboundedWalls.slice(),
             edges          = getAdjacentBoardEdges(posIndex),
@@ -184,7 +387,7 @@ var board = (function () {
         }
         else {
             for (i = 0; i < walls.length; i++) {
-                if (module.placedWalls.indexOf(walls[i]) === -1) {
+                if (my.placedWalls.indexOf(walls[i]) === -1) {
                     invalidWalls.push(walls[i]);
                 }
             }
@@ -194,217 +397,176 @@ var board = (function () {
             return walls;
         }
     }
-    
+
+    //Direction indexes
+    //0:North 1:East 2:South 3:West
+    function getMovePosition(pos, dir) {
+        var moves = [
+            (pos - global.BOARD_DIMENSION),
+            (pos + 1),
+            (pos + global.BOARD_DIMENSION),
+            (pos - 1)
+        ];
+        if (moveIsOnBoard(pos, moves[dir])) {
+            return moves[dir];
+        }
+        else {
+            return -1;
+        }
+    }
+
     //Returned values:
-    //0:Top 1:Right 2:Bottom 3:Left
-    function getAdjacentBoardEdges(pos) {
+    //0 is North
+    //1 is East
+    //2 is South
+    //3 is West
+    //4 is Identical
+    //-1 is non-cardinal or non-adjacent
+    function getRelativeDirection(pos1, pos2) {
         var i,
-            edges = [];
-
-        //Check if moves are on board
-        for (i = 0; i < 4; i++) {
-            if (getMovePosition(pos, i) === -1) {
-                edges.push(i);
+            moves = getUnboundedMoveSet(pos1);
+        for (i = 0; i < moves.length; i++) {
+            if (moves[i] === pos2) {
+                return i;
             }
         }
-
-        return edges;
+        return -1;
     }
 
-    function moveIsOnBoard(pos1, pos2) {
-        var direction = getRelativeDirection(pos1, pos2);
-
-        switch (direction) {
-            //North is valid if not on top edge
-            case 0:
-                return (Math.floor(pos1 / module.boardDimension) > 0);
-            //East is valid if not on right edge
-            case 1:
-                return ((pos1 % module.boardDimension) < 8);
-            //South
-            case 2:
-                return (Math.floor(pos1 / module.boardDimension) < 8);
-            //West
-            case 3:
-                return ((pos1 % module.boardDimension) > 0);
-            default:
-                return false;
-        }
-    }
-
-    function wallIntersects(wallIndex) {
-        var i,
-            conflictWalls;
-
-        if ((wallIndex % 2) === 0) {
-            conflictWalls = [
-                wallIndex,
-                wallIndex + 1,
-                wallIndex + 2,
-                wallIndex - 2
-            ];
-            if (wallIndex % ((module.boardDimension - 1) * 2) === (((module.boardDimension - 1) * 2) - 2)) {
-                conflictWalls.splice(2,1);
-            }
-            if (wallIndex % ((module.boardDimension - 1) * 2) === 0) {
-                conflictWalls.splice(3,1);
-            }
-        }
-        else {
-            conflictWalls = [
-                wallIndex,
-                wallIndex - 1,
-                wallIndex - (module.boardDimension - 1) * 2,
-                wallIndex + (module.boardDimension - 1) * 2
-            ];
-        }
-
-        for (i = 0; i < conflictWalls.length; i++) {
-            if (module.placedWalls.indexOf(conflictWalls[i]) > -1) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function wallIsValid(wallIndex) {
-        return wallIndex > -1 &&
-               !wallIntersects(wallIndex) &&
-               tokensHavePaths(wallIndex);
-    }
-
-    function moveIsValid(movePosition) {
-        if (typeof module.validMoves !== 'undefined') {
-            return (module.validMoves.indexOf(movePosition) !== -1);
-        }
-        else {
-            return false;
-        }
-    }
-
-    function tokensHavePaths(wallIndex) {
-        var i,
-            tokens = players.getTokens();
-
-        for (i = 0; i < tokens.length; i++) {
-            if (!tokenHasPathToEnd(tokens[i], wallIndex)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    function tokenHasPathToEnd(token, includeWall) {
-        var i, node, moves,
-            winRange          = token.getWinRange(),
-            positionQueue     = [token.getPosition()],
-            examinedPositions = new Array(Math.pow(module.boardDimension, 2) - 1)
-                                .join('0').split('').map(parseFloat);
-        if (includeWall > -1) {
-            module.placedWalls.push(includeWall);
-        }
-
-        do {
-            node  = positionQueue.shift();
-            if (node >= winRange[0] && node <= winRange[1]) {
-                module.placedWalls.splice(module.placedWalls.length - 1, 1);
-                return true;
-            }
-            moves = findValidMovePositions(node, false);
-            for (i = 0; i < moves.length; i++) {
-                if (examinedPositions[moves[i]] !== 1) {
-                    examinedPositions[moves[i]] = 1;
-                    positionQueue = positionQueue.concat(findValidMovePositions(moves[i]));
-                }
-            }
-        } while (positionQueue.length > 0);
-        module.placedWalls.splice(module.placedWalls.length - 1, 1);
-        return false;
-    }
-
-    function findValidMovePositions(posIndex, ignoreJump) {
-        var moves = getMoveSet(posIndex),
-            walls = getAdjacentWalls(posIndex, false),
-            i, j, k, jumpSpace,
-            opponentDirection, opponentMoves, wallOrientation;
-
-        for (i = 0; i < walls.length; i++) {
-            //If an obstructive wall has been placed
-            if (module.placedWalls.indexOf(walls[i]) > -1) {
-                //Get blocking direction of wall
-                wallOrientation = getRelativeWallOrientation(posIndex, walls[i]);
-                //And remove that direction from moveset
-                moves.splice(moves.indexOf(getMovePosition(posIndex, wallOrientation)), 1);
-            }
-        }
-
-        //Check for adjacent player, add valid jump moves
-        if (ignoreJump === false) {
-            for (i = 0; i < moves.length; i++) {
-                //If there is an adjacent player
-                if (typeof players.getTokenAtPosition(moves[i]) !== 'undefined' && moves[i] !== posIndex) {
-                    //Get opponent direction and walls around its position
-                    opponentDirection = getRelativeDirection(posIndex, moves[i]);
-                    walls             = getAdjacentWalls(moves[i], false);
-                    for (j = 0; j < walls.length; j++) {
-                        wallOrientation = getRelativeWallOrientation(moves[i], walls[j]);
-                        //If wall obstructs jump, add opponent's moveset to current player's
-                        if (opponentDirection === wallOrientation) {
-                            opponentMoves = findValidMovePositions(moves[i], true);
-                        }
-                    }
-                    //If jump is clear, add jump to moveset
-                    //remove opponent's position
-                    //If jump is off the board (which is an unclear case in the rules!) add opponents moves
-                    if (typeof opponentMoves === 'undefined') {
-                        jumpSpace = getMovePosition(moves[i], opponentDirection);
-                        if (jumpSpace > -1) {
-                            moves.splice(i, 1, jumpSpace);
-                        }
-                        else {
-                            opponentMoves = findValidMovePositions(moves[i], true);
-                        }
-                    }
-                    if (typeof opponentMoves !== 'undefined') {
-                        for (k = 0; k < opponentMoves.length; k++) {
-                            if (moves.indexOf(opponentMoves[k]) === -1) {
-                                moves.push(opponentMoves[k]);
-                            }
-                        }
-                        moves.splice(i, 1);
-                    }
+    //Returned values:
+    //0 is Horizontal Top
+    //1 is Vertical Right
+    //2 is Horizontal Bottom
+    //3 is Vertical Left
+    //-1 is Non-adjacent
+    function getRelativeWallOrientation(posIndex, wallIndex) {
+        var unboundedWalls = getUnboundedAdjacentWalls(posIndex),
+            i;
+        for (i = 0; i < unboundedWalls.length; i++) {
+            if (unboundedWalls[i] === wallIndex) {
+                switch (i) {
+                    case 4:
+                    case 6:
+                        return 0;
+                    case 1:
+                    case 7:
+                        return 1;
+                    case 0:
+                    case 2:
+                        return 2;
+                    case 3:
+                    case 5:
+                        return 3;
                 }
             }
         }
-        return moves;
+        return -1;
     }
+
+    //Returns moveset with respect to board position, ignores walls
+    function getMoveSet(pos) {
+        var i,
+            unboundedMoveset = getUnboundedMoveSet(pos),
+            moveset          = unboundedMoveset.slice(),
+            edges            = getAdjacentBoardEdges(pos);
+
+        for (i = 0; i < edges.length; i++) {
+            moveset.splice(moveset.indexOf(unboundedMoveset[edges[i]]), 1);
+        }
+
+        return moveset;
+    }
+
+    //0:North 1:East 2:South 3:West 4:Identity
+    function getUnboundedMoveSet(pos) {
+        return [
+            (pos - global.BOARD_DIMENSION),
+            (pos + 1),
+            (pos + global.BOARD_DIMENSION),
+            (pos - 1),
+            pos
+        ];
+    }
+
+    //Returns surrounding wall indexes regardless of position on board
+    function getUnboundedAdjacentWalls(pos) {
+        var wall,
+            walls = [];
+
+        //Bottom right wall vertex
+        wall = (pos % global.BOARD_DIMENSION) * 2 +
+            Math.floor(pos / global.BOARD_DIMENSION) * (global.BOARD_DIMENSION - 1) * 2;
+        walls.push(wall, (wall + 1));
+
+        //Bottom left
+        wall -= 2;
+        walls.push(wall, (wall + 1));
+
+        //Top left
+        wall -= (global.BOARD_DIMENSION - 1) * 2;
+        walls.push(wall, (wall + 1));
+
+        //Top right
+        wall += 2;
+        walls.push(wall, (wall + 1));
+
+        return walls;
+    }
+
+    return {
+        placeWall: function placeWall(wall) {
+            if (wall > -1) {
+                my.placedWalls.push(wall);
+            }
+        },
+        getBoardString: function getBoardString() {
+            return JSON.stringify(my);
+        },
+        getValidMoves: function getValidMoves() {
+            return my.validMoves;
+        },
+        setValidMoves: setValidMoves,
+        findValidMoves: findValidMoves,
+        wallIsValid: wallIsValid,
+        moveIsValid: moveIsValid,
+        getPlacedWalls: function getPlacedWalls() {
+            return my.placedWalls;
+        }
+    };
+}
+/**
+ * Created by ben on 9/3/15.
+ */
+var GUI = (function () {
+    'use strict';
+
+    var module = {};
 
     function coordinatesToWallIndex(coor) {
-        var boardUnit  = module.borderWidth + module.cellWidth,
+        var boardUnit  = global.BORDER_WIDTH + global.CELL_WIDTH,
             index      = 0,
-            //X coordinate is inside of a cell border
-            boundTest1 = (coor[0] % boardUnit) <= module.borderWidth,
-            //Y coordinate is inside of a cell border
-            boundTest2 = (coor[1] % boardUnit) <= module.borderWidth,
-            //X and Y coordinates are greater than the top and left border widths
-            boundTest3 = coor[0] > module.borderWidth && coor[1] > module.borderWidth,
-            //X and Y coordinates are less than the bottom and right border dimensions
-            boundTest4 = Math.floor(coor[0] / boardUnit) < module.boardDimension &&
-                Math.floor(coor[1] / boardUnit) < module.boardDimension;
+        //X coordinate is inside of a cell border
+            boundTest1 = (coor[0] % boardUnit) <= global.BORDER_WIDTH,
+        //Y coordinate is inside of a cell border
+            boundTest2 = (coor[1] % boardUnit) <= global.BORDER_WIDTH,
+        //X and Y coordinates are greater than the top and left border widths
+            boundTest3 = coor[0] > global.BORDER_WIDTH && coor[1] > global.BORDER_WIDTH,
+        //X and Y coordinates are less than the bottom and right border dimensions
+            boundTest4 = Math.floor(coor[0] / boardUnit) < global.BOARD_DIMENSION &&
+                Math.floor(coor[1] / boardUnit) < global.BOARD_DIMENSION;
 
         if ((boundTest1 !== boundTest2) && boundTest3 && boundTest4) {
             //Vertical wall y coordinate component
-            if (Math.floor(coor[1] / boardUnit) > 0 && coor[1] % boardUnit > module.borderWidth) {
-                index += 2 * Math.floor(coor[1] / boardUnit) * (module.boardDimension - 1);
+            if (Math.floor(coor[1] / boardUnit) > 0 && coor[1] % boardUnit > global.BORDER_WIDTH) {
+                index += 2 * Math.floor(coor[1] / boardUnit) * (global.BOARD_DIMENSION - 1);
             }
             //Horizontal wall y coordinate component
             else if (Math.floor(coor[1] / boardUnit) > 0 ) {
-                index += 2 * (Math.floor(coor[1] / boardUnit) - 1) * (module.boardDimension - 1);
+                index += 2 * (Math.floor(coor[1] / boardUnit) - 1) * (global.BOARD_DIMENSION - 1);
             }
-            if (Math.floor(coor[0] / boardUnit) < module.boardDimension) {
+            if (Math.floor(coor[0] / boardUnit) < global.BOARD_DIMENSION) {
                 //Horizontal wall x coordinate component
-                if (coor[0] % boardUnit > module.borderWidth) {
+                if (coor[0] % boardUnit > global.BORDER_WIDTH) {
                     index += 2 * Math.floor(coor[0] / boardUnit);
                 }
                 //Vertical wall x coordinate component
@@ -414,13 +576,13 @@ var board = (function () {
             }
             //If X or Y coordinates are in the last board unit
             //use the index of the previous wall
-            if (Math.floor(coor[0] / boardUnit) === (module.boardDimension - 1) &&
-                coor[0] % boardUnit > module.borderWidth) {
+            if (Math.floor(coor[0] / boardUnit) === (global.BOARD_DIMENSION - 1) &&
+                coor[0] % boardUnit > global.BORDER_WIDTH) {
                 index -= 2;
             }
-            else if (Math.floor(coor[1] / boardUnit) === (module.boardDimension - 1) &&
-                coor[1] % boardUnit > module.borderWidth) {
-                index -= (module.boardDimension - 1) * 2;
+            else if (Math.floor(coor[1] / boardUnit) === (global.BOARD_DIMENSION - 1) &&
+                coor[1] % boardUnit > global.BORDER_WIDTH) {
+                index -= (global.BOARD_DIMENSION - 1) * 2;
             }
         }
         else {
@@ -437,36 +599,38 @@ var board = (function () {
 
     function indexToWallCoordinates(idx) {
         var x, y,
-            boardUnit = module.borderWidth + module.cellWidth;
+            boardUnit = global.BORDER_WIDTH + global.CELL_WIDTH;
         if (idx % 2 === 0) {
-            x = module.borderWidth + ((idx % ((module.boardDimension - 1) * 2)) / 2) * boardUnit;
-            y = ( 1 + Math.floor(idx / ((module.boardDimension - 1) * 2))) * boardUnit;
+            x = global.BORDER_WIDTH + ((idx % ((global.BOARD_DIMENSION - 1) * 2)) / 2) * boardUnit;
+            y = ( 1 + Math.floor(idx / ((global.BOARD_DIMENSION - 1) * 2))) * boardUnit;
         }
         else {
-            x = ((((idx % ((module.boardDimension - 1) * 2)) - 1) / 2) + 1) * boardUnit;
-            y = module.borderWidth + Math.floor(idx / ((module.boardDimension - 1) * 2)) * boardUnit;
+            x = ((((idx % ((global.BOARD_DIMENSION - 1) * 2)) - 1) / 2) + 1) * boardUnit;
+            y = global.BORDER_WIDTH + Math.floor(idx / ((global.BOARD_DIMENSION - 1) * 2)) * boardUnit;
         }
         return [x,y];
     }
 
     function positionToRectCellCoordinates(pos) {
-        var pos1 = pos % module.boardDimension ,
-            pos2 = Math.floor(pos / module.boardDimension),
-            x    = pos1 * module.cellWidth + (pos1 + 1) * module.borderWidth,
-            y    = pos2 * module.cellWidth + (pos2 + 1) * module.borderWidth;
+        var pos1 = pos % global.BOARD_DIMENSION ,
+            pos2 = Math.floor(pos / global.BOARD_DIMENSION),
+            x    = pos1 * global.CELL_WIDTH + (pos1 + 1) * global.BORDER_WIDTH,
+            y    = pos2 * global.CELL_WIDTH + (pos2 + 1) * global.BORDER_WIDTH;
         return [x,y];
     }
 
     function getValidMoveCoordinates() {
-        var moves = [],
-            i;
-        if (typeof module.validMoves === 'undefined') {
+        var i,
+            coors = [],
+            moves = board.getValidMoves();
+
+        if (typeof moves === 'undefined') {
             return undefined;
         }
-        for (i = 0; i < module.validMoves.length; i++) {
-            moves.push(positionToRectCellCoordinates(module.validMoves[i]));
+        for (i = 0; i < moves.length; i++) {
+            coors.push(positionToRectCellCoordinates(moves[i]));
         }
-        return moves;
+        return coors;
     }
 
     function drawHud() {
@@ -475,17 +639,17 @@ var board = (function () {
             player2Walls = players.getPlayer2().getWallCount();
 
         module.hudContext.fillStyle = 'black';
-        module.hudContext.fillRect(0, 0, module.boardSize / 3, module.boardSize);
+        module.hudContext.fillRect(0, 0, global.BOARD_SIZE / 3, global.BOARD_SIZE);
 
         for (i = 0; i < player2Walls; i++) {
-            x = module.borderWidth + (i % 5) * 2 * module.borderWidth;
-            y = module.cellWidth * 2.5 * (0.3 + Math.floor(i / 5));
+            x = global.BORDER_WIDTH + (i % 5) * 2 * global.BORDER_WIDTH;
+            y = global.CELL_WIDTH * 2.5 * (0.3 + Math.floor(i / 5));
             drawWall([x,y], module.hudContext, players.getPlayer2().getColor(), true);
         }
 
         for (i = 0; i < player1Walls; i++) {
-            x = module.borderWidth + (i % 5) * 2 * module.borderWidth;
-            y = module.cellWidth * 5 + module.cellWidth * 2.5 * (0.3 + Math.floor(i / 5));
+            x = global.BORDER_WIDTH + (i % 5) * 2 * global.BORDER_WIDTH;
+            y = global.CELL_WIDTH * 5 + global.CELL_WIDTH * 2.5 * (0.3 + Math.floor(i / 5));
             drawWall([x,y], module.hudContext, players.getPlayer1().getColor(), true);
         }
     }
@@ -493,28 +657,41 @@ var board = (function () {
     function drawWall(coor, ctx, fill, vertical) {
         ctx.fillStyle = fill;
         if (vertical === true) {
-            ctx.fillRect(coor[0], coor[1], module.borderWidth, module.cellWidth * 2 + module.borderWidth);
+            ctx.fillRect(coor[0], coor[1], global.BORDER_WIDTH, global.CELL_WIDTH * 2 + global.BORDER_WIDTH);
         }
         else {
-            ctx.fillRect(coor[0], coor[1], module.cellWidth * 2 + module.borderWidth, module.borderWidth);
+            ctx.fillRect(coor[0], coor[1], global.CELL_WIDTH * 2 + global.BORDER_WIDTH, global.BORDER_WIDTH);
         }
     }
 
+    function drawToken(token) {
+        var x = token.getX(),
+            y = token.getY(),
+            radius = token.getRadius();
+
+        module.boardContext.fillStyle = token.getColor();
+        module.boardContext.beginPath();
+        module.boardContext.arc(x, y, radius, 0, Math.PI * 2);
+        module.boardContext.fill();
+    }
+
     function drawBoard() {
-        var i, j, k, x, y, coor, tokens, validMoveCoordinates;
+        var i, j, k, x, y, coor, tokens, validMoveCoordinates,
+            placedWalls = board.getPlacedWalls();
 
         function drawCell(coor, fill) {
             module.boardContext.fillStyle = fill;
-            module.boardContext.fillRect(coor[0], coor[1], module.cellWidth, module.cellWidth);
+            module.boardContext.fillRect(coor[0], coor[1], global.CELL_WIDTH, global.CELL_WIDTH);
         }
 
         module.boardContext.fillStyle = 'black';
-        module.boardContext.fillRect(0, 0, module.boardSize, module.boardSize);
-        for (i = 0; i < module.boardDimension; i++) {
-            for (j = 0; j < module.boardDimension; j++) {
+        module.boardContext.fillRect(0, 0, global.BOARD_SIZE, global.BOARD_SIZE);
+
+        for (i = 0; i < global.BOARD_DIMENSION; i++) {
+            for (j = 0; j < global.BOARD_DIMENSION; j++) {
                 //Cell Coordinates
-                x = module.borderWidth * (j + 1) + module.cellWidth * j;
-                y = module.borderWidth * (i + 1) + module.cellWidth * i;
+                x = global.BORDER_WIDTH * (j + 1) + global.CELL_WIDTH * j;
+                y = global.BORDER_WIDTH * (i + 1) + global.CELL_WIDTH * i;
                 validMoveCoordinates = getValidMoveCoordinates();
                 //Draw highlighted cells
                 if (typeof validMoveCoordinates !== 'undefined') {
@@ -534,7 +711,7 @@ var board = (function () {
             }
         }
 
-        if (typeof module.wallPreview !== 'undefined' && module.wallPreview > -1) {
+        if (module.wallPreview > -1) {
             coor = indexToWallCoordinates(module.wallPreview);
             if (module.wallPreview % 2 === 0) {
                 drawWall(coor, module.boardContext, players.getCurrentPlayer().getColor(), false);
@@ -544,10 +721,10 @@ var board = (function () {
             }
         }
 
-        if (module.placedWalls.length > 0) {
-            for (i = 0; i < module.placedWalls.length; i++) {
-                coor = indexToWallCoordinates(module.placedWalls[i]);
-                if (module.placedWalls[i] % 2 === 0) {
+        if (placedWalls.length > 0) {
+            for (i = 0; i < placedWalls.length; i++) {
+                coor = indexToWallCoordinates(placedWalls[i]);
+                if (placedWalls[i] % 2 === 0) {
                     drawWall(coor, module.boardContext, 'white', false);
                 }
                 else {
@@ -557,163 +734,123 @@ var board = (function () {
         }
 
         tokens = players.getTokens();
-        if (typeof tokens !== 'undefined') {
-            tokens[0].drawToken(module.boardContext);
-            tokens[1].drawToken(module.boardContext);
-        }
+        drawToken(tokens[0]);
+        drawToken(tokens[1]);
     }
 
-    function updateDisplay() {
+    function update() {
         drawBoard();
         drawHud();
     }
 
     //Public methods
     return {
-        init: function init(cw, dim) {
-            module.cellWidth              = cw;
-            module.boardDimension         = dim;
-            module.borderWidth            = cw / 5;
-            module.topStartPos            = Math.floor(module.boardDimension / 2);
-            module.botStartPos            = Math.floor(module.boardDimension / 2) +
-                                        module.boardDimension * (module.boardDimension - 1);
-            module.boardSize              = module.cellWidth * module.boardDimension +
-                                        module.borderWidth * (module.boardDimension + 1);
+        init: function init() {
             //HUD Canvas (Wall count)
             module.hudCanvas              = document.createElement('canvas');
             module.hudCanvas.id           = 'hud';
-            module.hudCanvas.height       = module.boardSize;
-            module.hudCanvas.width        = module.boardSize / 3;
+            module.hudCanvas.height       = global.BOARD_SIZE;
+            module.hudCanvas.width        = global.BOARD_SIZE / 3;
             module.hudContext             = module.hudCanvas.getContext('2d');
             module.hudContext.fillStyle   = 'black';
-            module.hudContext.fillRect(0, 0, module.boardSize / 3, module.boardSize);
+            module.hudContext.fillRect(0, 0, global.BOARD_SIZE / 3, global.BOARD_SIZE);
             document.body.appendChild(module.hudCanvas);
-
             //Board Canvas
             module.boardCanvas            = document.createElement('canvas');
             module.boardCanvas.id         = 'board';
-            module.boardCanvas.height     = module.boardSize;
-            module.boardCanvas.width      = module.boardSize;
+            module.boardCanvas.height     = global.BOARD_SIZE;
+            module.boardCanvas.width      = global.BOARD_SIZE;
             module.boardContext           = module.boardCanvas.getContext('2d');
             module.boardContext.fillStyle = 'black';
-            module.boardContext.fillRect(0, 0, module.boardSize, module.boardSize);
+            module.boardContext.fillRect(0, 0, global.BOARD_SIZE, global.BOARD_SIZE);
             document.body.appendChild(module.boardCanvas);
-
+            module.wallPreview = -1;
+            update();
         },
-        drawBoard: drawBoard,
-        updateDisplay: updateDisplay,
-        getCanvas: function getCanvas() {
+        update: update,
+        getBoardCanvas: function getBoardCanvas() {
             return module.boardCanvas;
         },
-        getContext: function getContext() {
+        getBoardContext: function getBoardContext() {
             return module.boardContext;
-        },
-        getDimension: function getDimension() {
-            return module.boardDimension;
-        },
-        getCellWidth: function getCellWidth() {
-            return module.cellWidth;
-        },
-        getBorderWidth: function getBorderWidth() {
-            return module.borderWidth;
-        },
-        getBotPos: function getBotPos() {
-            return module.botStartPos;
-        },
-        getTopPos: function getTopPos() {
-            return module.topStartPos;
         },
         //Pixel coordinates on canvas return board position
         coordinatesToCellPosition: function coordinatesToCellPosition(coor) {
-            var boardUnit = module.borderWidth + module.cellWidth,
-                position  = Math.floor(coor[0] / boardUnit) + Math.floor(coor[1] / boardUnit) * module.boardDimension,
+            var boardUnit = global.BORDER_WIDTH + global.CELL_WIDTH,
+                position  = Math.floor(coor[0] / boardUnit) + Math.floor(coor[1] / boardUnit) * global.BOARD_DIMENSION,
                 boundTest,
                 i;
 
             for (i = 0; i < 2; i++) {
                 boundTest = coor[i] % boardUnit;
-                if (boundTest <= module.borderWidth) {
+                if (boundTest <= global.BORDER_WIDTH) {
                     return undefined;
                 }
             }
             return position;
-
         },
         coordinatesToWallIndex: coordinatesToWallIndex,
         //Returns center coordinates of cell
         positionToCellCoordinates: function positionToCellCoordinates(pos) {
-            var pos1 = pos % module.boardDimension,
-                pos2 = Math.floor(pos / module.boardDimension),
-                x = (pos1 + 0.5) * module.cellWidth + (pos1 + 1) * module.borderWidth,
-                y = (pos2 + 0.5) * module.cellWidth + (pos2 + 1) * module.borderWidth;
+            var pos1 = pos % global.BOARD_DIMENSION,
+                pos2 = Math.floor(pos / global.BOARD_DIMENSION),
+                x = (pos1 + 0.5) * global.CELL_WIDTH + (pos1 + 1) * global.BORDER_WIDTH,
+                y = (pos2 + 0.5) * global.CELL_WIDTH + (pos2 + 1) * global.BORDER_WIDTH;
             return [x,y];
+        },
+        getWallPreview: function getWallPreview() {
+            return module.wallPreview;
+        },
+        setWallPreview: function setWallPreview(wall) {
+            if (wall > -1) {
+                module.wallPreview = wall;
+            }
+            else {
+                module.wallPreview = -1;
+            }
         },
         //Returns top left coordinates of cell
         positionToRectCellCoordinates: positionToRectCellCoordinates,
-        setValidMovePositions: function setValidMovePositions(mvs) {
-            if (typeof mvs !== 'undefined') {
-                module.validMoves = mvs.slice();
-            }
-            else {
-                module.validMoves = undefined;
-            }
-        },
-        getValidMovePositions: function getValidMovePositions() {
-            return module.validMoves;
-        },
-        getValidMoveCoordinates: getValidMoveCoordinates,
-        setWallPreview: function setWallPreview(coor) {
-            if (coor.constructor === Array) {
-                module.wallPreview = coordinatesToWallIndex(coor);
-            }
-            else {
-                module.wallPreview = undefined;
-            }
-        },
-        getWallPreview: function getWallPreview() {
-            if (module.wallPreview > -1) {
-                return module.wallPreview;
-            }
-            else {
-                return undefined;
-            }
-        },
-        placeWall: function placeWall(wall) {
-            if (wall > -1) {
-                module.placedWalls.push(wall);
-            }
-        },
-        getAdjacentWalls: getAdjacentWalls,
-        findValidMovePositions: findValidMovePositions,
-        moveIsOnBoard: moveIsOnBoard,
-        wallIsValid: wallIsValid,
-        moveIsValid: moveIsValid
+        getValidMoveCoordinates: getValidMoveCoordinates
     };
 
 })();
 /**
  * Created by Ben on 8/18/2015.
  */
+
+var global = {};
+
 (function () {
     'use strict';
+    //Set constant global board properties
+    global.BOARD_DIMENSION = 9;
+    global.CELL_WIDTH = 55;
+    global.BORDER_WIDTH = global.CELL_WIDTH / 5;
+    global.BOARD_SIZE = global.CELL_WIDTH * global.BOARD_DIMENSION +
+            global.BORDER_WIDTH * (global.BOARD_DIMENSION + 1);
+    global.TOP_START_POS = Math.floor(global.BOARD_DIMENSION / 2);
+    global.BOT_START_POS = Math.floor(global.BOARD_DIMENSION / 2) +
+        global.BOARD_DIMENSION * (global.BOARD_DIMENSION - 1);
+
+    function fixMouse(e) {
+        var rect = GUI.getBoardCanvas().getBoundingClientRect();
+        var mx = (e.clientX - rect.left) / (rect.right - rect.left) * GUI.getBoardCanvas().width,
+            my = (e.clientY - rect.top) / (rect.bottom - rect.top) * GUI.getBoardCanvas().height;
+        return [mx, my];
+    }
 
     document.addEventListener('DOMContentLoaded', function init() {
         var selectedToken, offsetY, offsetX;
 
-        function fixMouse(e) {
-            var rect = board.getCanvas().getBoundingClientRect();
-            var mx = (e.clientX - rect.left) / (rect.right - rect.left) * board.getCanvas().width,
-                my = (e.clientY - rect.top) / (rect.bottom - rect.top) * board.getCanvas().height;
-            return [mx, my];
-        }
         //Game initializers
-        board.init(55, 9); //Cell width, board dimension
+        board = boardConstructor({simulated: false});
         players.init('human','ai');
-        board.updateDisplay();
+        GUI.init();
 
         //Click event handler
-        board.getCanvas().addEventListener('mousedown', function (e) {
-            var mouse, mx, my, token, dx, dy, moves, wall;
+        GUI.getBoardCanvas().addEventListener('mousedown', function (e) {
+            var mouse, mx, my, token, dx, dy, wall;
 
             //Shift pointer coordinates to 0,0 at top left of canvas
             mouse = fixMouse(e);
@@ -729,24 +866,22 @@ var board = (function () {
                 offsetY = dy;
             }
 
-            wall = board.getWallPreview();
+            wall = GUI.getWallPreview();
             if (typeof selectedToken !== 'undefined') {
-                moves = board.findValidMovePositions(selectedToken.getPosition(), false);
-                console.log('moves '+moves);
-                board.setValidMovePositions(moves);
-                board.updateDisplay();
+                board.findValidMoves(selectedToken.getPosition(), false, false);
+                GUI.update();
             }
             else if (board.wallIsValid(wall)) {
                 board.placeWall(wall);
                 players.getCurrentPlayer().act();
                 players.getCurrentPlayer().useWall();
-                board.updateDisplay();
+                GUI.update();
             }
 
         });
 
         //Move event
-        board.getCanvas().addEventListener('mousemove', function (e) {
+        GUI.getBoardCanvas().addEventListener('mousemove', function (e) {
             var mouse = fixMouse(e),
                 x, y;
             if (typeof selectedToken !== 'undefined') {
@@ -755,29 +890,29 @@ var board = (function () {
                 selectedToken.setCoordinates([x,y]);
             }
             else {
-                board.setWallPreview(mouse);
+                GUI.setWallPreview(GUI.coordinatesToWallIndex(mouse));
             }
-            board.updateDisplay();
+            GUI.update();
         });
 
         //Release event
-        board.getCanvas().addEventListener('mouseup', function (e) {
+        GUI.getBoardCanvas().addEventListener('mouseup', function (e) {
             if (typeof selectedToken !== 'undefined') {
                 selectedToken.updatePosition();
                 selectedToken.updateCoordinates();
                 selectedToken = undefined;
-                board.setValidMovePositions(undefined);
-                board.updateDisplay();
+                board.setValidMoves([]);
+                GUI.update();
             }
             if (players.getCurrentPlayer().hasActed()) {
                 players.nextPlayer();
             }
         });
-
     });
 
 
 })();
+
 /**
  * Created by ben on 8/21/15.
  */
@@ -796,19 +931,20 @@ var players = (function () {
     }
 
     function getWinningRange(startPos) {
-        if (Math.floor(startPos / board.getDimension()) === 0) {
-            return [board.getDimension() * (board.getDimension() - 1), Math.pow(board.getDimension(), 2) - 1];
+        if (Math.floor(startPos / global.BOARD_DIMENSION) === 0) {
+            return [global.BOARD_DIMENSION * (global.BOARD_DIMENSION - 1), Math.pow(global.BOARD_DIMENSION, 2) - 1];
         }
         else {
-            return [0, board.getDimension() - 1];
+            return [0, global.BOARD_DIMENSION - 1];
         }
     }
 
     //Basic player constructor
-    function Player(clr, pos, range) {
+    function Player(clr, idx, pos) {
         var my = {
+            index: idx,
             color: clr,
-            token: new Token(pos, range, clr, this),
+            token: new Token(clr, this, pos),
             hasActed: false,
             wallCount: module.startingWalls
         };
@@ -829,44 +965,38 @@ var players = (function () {
             return my.hasActed;
         };
 
+        this.getIndex = function getIndex() {
+            return my.index;
+        };
+
         this.getWallCount = function getWallCount() {
             return my.wallCount;
         };
 
         this.useWall = function useWall() {
             my.wallCount--;
-            console.log('wall count '+my.wallCount);
         };
     }
 
-    function HumanPlayer(clr, pos) {
+    function HumanPlayer(clr, idx, pos) {
         Player.apply(this, arguments);
     }
 
-    function ComputerPlayer(clr, pos) {
+    function ComputerPlayer(clr, idx, pos) {
         Player.apply(this, arguments);
     }
 
-    function Token(pos, range, clr, plr){
+    function Token(clr, plr, pos){
         var my = {
                 position: pos,
                 color: clr,
                 player: plr,
-                winRange: range
+                winRange: getWinningRange(pos)
             },
-            celWid = board.getCellWidth(),
-            coors  = board.positionToCellCoordinates(my.position);
-
+            coors  = GUI.positionToCellCoordinates(my.position);
         my.x      = coors[0];
         my.y      = coors[1];
-        my.radius = celWid / 2 * 0.8;
-
-        this.drawToken = function drawToken(ctx) {
-            ctx.fillStyle = my.color;
-            ctx.beginPath();
-            ctx.arc(my.x, my.y, my.radius, 0, Math.PI * 2);
-            ctx.fill();
-        };
+        my.radius = global.CELL_WIDTH / 2 * 0.8;
 
         this.getX = function getX() {
             return my.x;
@@ -883,6 +1013,7 @@ var players = (function () {
         this.setY = function setY(yPos) {
             my.y = yPos;
         };
+
         //Position on board cell matrix
         this.setPosition = function setPosition(pos) {
             my.position = pos;
@@ -891,48 +1022,58 @@ var players = (function () {
         this.getRadius = function getRadius() {
             return my.radius;
         };
+
         //Pixel coordinates on canvas
         this.setCoordinates = function setCoordinates(coor) {
             my.x = coor[0];
             my.y = coor[1];
         };
+
         this.getCoordinates = function getCoordinates() {
             return [my.x, my.y];
         };
+
         this.updatePosition = function updatePosition() {
             var newPos,
                 coor = [my.x, my.y];
-            newPos = board.coordinatesToCellPosition(coor);
+            newPos = GUI.coordinatesToCellPosition(coor);
             if (newPos !== my.position && board.moveIsValid(newPos)) {
                 my.player.act();
                 my.position = newPos;
             }
         };
+
         this.updateCoordinates = function updateCoordinates() {
-            var coor = board.positionToCellCoordinates(my.position);
+            var coor = GUI.positionToCellCoordinates(my.position);
             my.x = coor[0];
             my.y = coor[1];
         };
+
         this.getPosition = function getPosition() {
             return my.position;
         };
+
         this.getWinRange = function getWinRange() {
             return my.winRange;
+        };
+
+        this.getColor = function getColor() {
+            return my.color;
         };
     }
 
     //Return public methods
     return {
         init: function init(p1, p2) {
-            module.player1 = playerType(p1, 'red', board.getBotPos());
-            module.player2 = playerType(p2, 'blue', board.getTopPos());
+            module.player1 = playerType(p1, 'red', 0, global.BOT_START_POS);
+            module.player2 = playerType(p2, 'blue', 1, global.TOP_START_POS);
 
-            function playerType(type, color, pos) {
+            function playerType(type, color, idx, pos) {
                 if (type === 'human') {
-                    return new HumanPlayer(color, pos, getWinningRange(pos));
+                    return new HumanPlayer(color, idx, pos);
                 }
                 else {
-                    return new ComputerPlayer(color, pos, getWinningRange(pos));
+                    return new ComputerPlayer(color, idx, pos);
                 }
             }
             module.currentPlayer = module.player1;
@@ -944,16 +1085,6 @@ var players = (function () {
             return module.player2;
         },
         getTokens: getTokens,
-        getTokenAtPosition: function getTokenAtPosition(pos) {
-            var tokens = getTokens(),
-                i;
-            for (i = 0; i < tokens.length; i++) {
-                if (pos === tokens[i].getPosition()) {
-                    return tokens[i];
-                }
-            }
-            return undefined;
-        },
         getCurrentPlayer: function getCurrentPlayer() {
             return module.currentPlayer;
         },

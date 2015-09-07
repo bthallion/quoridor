@@ -1,26 +1,39 @@
 /**
  * Created by Ben on 8/18/2015.
  */
+
+var global = {};
+
 (function () {
     'use strict';
+    //Set constant global board properties
+    global.BOARD_DIMENSION = 9;
+    global.CELL_WIDTH = 55;
+    global.BORDER_WIDTH = global.CELL_WIDTH / 5;
+    global.BOARD_SIZE = global.CELL_WIDTH * global.BOARD_DIMENSION +
+            global.BORDER_WIDTH * (global.BOARD_DIMENSION + 1);
+    global.TOP_START_POS = Math.floor(global.BOARD_DIMENSION / 2);
+    global.BOT_START_POS = Math.floor(global.BOARD_DIMENSION / 2) +
+        global.BOARD_DIMENSION * (global.BOARD_DIMENSION - 1);
+
+    function fixMouse(e) {
+        var rect = GUI.getBoardCanvas().getBoundingClientRect();
+        var mx = (e.clientX - rect.left) / (rect.right - rect.left) * GUI.getBoardCanvas().width,
+            my = (e.clientY - rect.top) / (rect.bottom - rect.top) * GUI.getBoardCanvas().height;
+        return [mx, my];
+    }
 
     document.addEventListener('DOMContentLoaded', function init() {
         var selectedToken, offsetY, offsetX;
 
-        function fixMouse(e) {
-            var rect = board.getCanvas().getBoundingClientRect();
-            var mx = (e.clientX - rect.left) / (rect.right - rect.left) * board.getCanvas().width,
-                my = (e.clientY - rect.top) / (rect.bottom - rect.top) * board.getCanvas().height;
-            return [mx, my];
-        }
         //Game initializers
-        board.init(55, 9); //Cell width, board dimension
+        board = boardConstructor({simulated: false});
         players.init('human','ai');
-        board.updateDisplay();
+        GUI.init();
 
         //Click event handler
-        board.getCanvas().addEventListener('mousedown', function (e) {
-            var mouse, mx, my, token, dx, dy, moves, wall;
+        GUI.getBoardCanvas().addEventListener('mousedown', function (e) {
+            var mouse, mx, my, token, dx, dy, wall;
 
             //Shift pointer coordinates to 0,0 at top left of canvas
             mouse = fixMouse(e);
@@ -36,24 +49,22 @@
                 offsetY = dy;
             }
 
-            wall = board.getWallPreview();
+            wall = GUI.getWallPreview();
             if (typeof selectedToken !== 'undefined') {
-                moves = board.findValidMovePositions(selectedToken.getPosition(), false);
-                console.log('moves '+moves);
-                board.setValidMovePositions(moves);
-                board.updateDisplay();
+                board.findValidMoves(selectedToken.getPosition(), false, false);
+                GUI.update();
             }
             else if (board.wallIsValid(wall)) {
                 board.placeWall(wall);
                 players.getCurrentPlayer().act();
                 players.getCurrentPlayer().useWall();
-                board.updateDisplay();
+                GUI.update();
             }
 
         });
 
         //Move event
-        board.getCanvas().addEventListener('mousemove', function (e) {
+        GUI.getBoardCanvas().addEventListener('mousemove', function (e) {
             var mouse = fixMouse(e),
                 x, y;
             if (typeof selectedToken !== 'undefined') {
@@ -62,25 +73,24 @@
                 selectedToken.setCoordinates([x,y]);
             }
             else {
-                board.setWallPreview(mouse);
+                GUI.setWallPreview(GUI.coordinatesToWallIndex(mouse));
             }
-            board.updateDisplay();
+            GUI.update();
         });
 
         //Release event
-        board.getCanvas().addEventListener('mouseup', function (e) {
+        GUI.getBoardCanvas().addEventListener('mouseup', function (e) {
             if (typeof selectedToken !== 'undefined') {
                 selectedToken.updatePosition();
                 selectedToken.updateCoordinates();
                 selectedToken = undefined;
-                board.setValidMovePositions(undefined);
-                board.updateDisplay();
+                board.setValidMoves([]);
+                GUI.update();
             }
             if (players.getCurrentPlayer().hasActed()) {
                 players.nextPlayer();
             }
         });
-
     });
 
 

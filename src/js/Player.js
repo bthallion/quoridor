@@ -16,19 +16,20 @@ var players = (function () {
     }
 
     function getWinningRange(startPos) {
-        if (Math.floor(startPos / board.getDimension()) === 0) {
-            return [board.getDimension() * (board.getDimension() - 1), Math.pow(board.getDimension(), 2) - 1];
+        if (Math.floor(startPos / global.BOARD_DIMENSION) === 0) {
+            return [global.BOARD_DIMENSION * (global.BOARD_DIMENSION - 1), Math.pow(global.BOARD_DIMENSION, 2) - 1];
         }
         else {
-            return [0, board.getDimension() - 1];
+            return [0, global.BOARD_DIMENSION - 1];
         }
     }
 
     //Basic player constructor
-    function Player(clr, pos, range) {
+    function Player(clr, idx, pos) {
         var my = {
+            index: idx,
             color: clr,
-            token: new Token(pos, range, clr, this),
+            token: new Token(clr, this, pos),
             hasActed: false,
             wallCount: module.startingWalls
         };
@@ -49,44 +50,38 @@ var players = (function () {
             return my.hasActed;
         };
 
+        this.getIndex = function getIndex() {
+            return my.index;
+        };
+
         this.getWallCount = function getWallCount() {
             return my.wallCount;
         };
 
         this.useWall = function useWall() {
             my.wallCount--;
-            console.log('wall count '+my.wallCount);
         };
     }
 
-    function HumanPlayer(clr, pos) {
+    function HumanPlayer(clr, idx, pos) {
         Player.apply(this, arguments);
     }
 
-    function ComputerPlayer(clr, pos) {
+    function ComputerPlayer(clr, idx, pos) {
         Player.apply(this, arguments);
     }
 
-    function Token(pos, range, clr, plr){
+    function Token(clr, plr, pos){
         var my = {
                 position: pos,
                 color: clr,
                 player: plr,
-                winRange: range
+                winRange: getWinningRange(pos)
             },
-            celWid = board.getCellWidth(),
-            coors  = board.positionToCellCoordinates(my.position);
-
+            coors  = GUI.positionToCellCoordinates(my.position);
         my.x      = coors[0];
         my.y      = coors[1];
-        my.radius = celWid / 2 * 0.8;
-
-        this.drawToken = function drawToken(ctx) {
-            ctx.fillStyle = my.color;
-            ctx.beginPath();
-            ctx.arc(my.x, my.y, my.radius, 0, Math.PI * 2);
-            ctx.fill();
-        };
+        my.radius = global.CELL_WIDTH / 2 * 0.8;
 
         this.getX = function getX() {
             return my.x;
@@ -103,6 +98,7 @@ var players = (function () {
         this.setY = function setY(yPos) {
             my.y = yPos;
         };
+
         //Position on board cell matrix
         this.setPosition = function setPosition(pos) {
             my.position = pos;
@@ -111,48 +107,58 @@ var players = (function () {
         this.getRadius = function getRadius() {
             return my.radius;
         };
+
         //Pixel coordinates on canvas
         this.setCoordinates = function setCoordinates(coor) {
             my.x = coor[0];
             my.y = coor[1];
         };
+
         this.getCoordinates = function getCoordinates() {
             return [my.x, my.y];
         };
+
         this.updatePosition = function updatePosition() {
             var newPos,
                 coor = [my.x, my.y];
-            newPos = board.coordinatesToCellPosition(coor);
+            newPos = GUI.coordinatesToCellPosition(coor);
             if (newPos !== my.position && board.moveIsValid(newPos)) {
                 my.player.act();
                 my.position = newPos;
             }
         };
+
         this.updateCoordinates = function updateCoordinates() {
-            var coor = board.positionToCellCoordinates(my.position);
+            var coor = GUI.positionToCellCoordinates(my.position);
             my.x = coor[0];
             my.y = coor[1];
         };
+
         this.getPosition = function getPosition() {
             return my.position;
         };
+
         this.getWinRange = function getWinRange() {
             return my.winRange;
+        };
+
+        this.getColor = function getColor() {
+            return my.color;
         };
     }
 
     //Return public methods
     return {
         init: function init(p1, p2) {
-            module.player1 = playerType(p1, 'red', board.getBotPos());
-            module.player2 = playerType(p2, 'blue', board.getTopPos());
+            module.player1 = playerType(p1, 'red', 0, global.BOT_START_POS);
+            module.player2 = playerType(p2, 'blue', 1, global.TOP_START_POS);
 
-            function playerType(type, color, pos) {
+            function playerType(type, color, idx, pos) {
                 if (type === 'human') {
-                    return new HumanPlayer(color, pos, getWinningRange(pos));
+                    return new HumanPlayer(color, idx, pos);
                 }
                 else {
-                    return new ComputerPlayer(color, pos, getWinningRange(pos));
+                    return new ComputerPlayer(color, idx, pos);
                 }
             }
             module.currentPlayer = module.player1;
@@ -164,23 +170,14 @@ var players = (function () {
             return module.player2;
         },
         getTokens: getTokens,
-        getTokenAtPosition: function getTokenAtPosition(pos) {
-            var tokens = getTokens(),
-                i;
-            for (i = 0; i < tokens.length; i++) {
-                if (pos === tokens[i].getPosition()) {
-                    return tokens[i];
-                }
-            }
-            return undefined;
-        },
         getCurrentPlayer: function getCurrentPlayer() {
             return module.currentPlayer;
         },
         nextPlayer: function nextPlayer() {
             module.currentPlayer.act();
             module.currentPlayer = module.currentPlayer === module.player1 ? module.player2 : module.player1;
-        }
+        },
+        getWinningRange: getWinningRange
     };
 
 })();
