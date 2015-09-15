@@ -7,30 +7,30 @@ var GUI = (function () {
     var module = {};
 
     function coordinatesToWallIndex(coor) {
-        var boardUnit  = global.BORDER_WIDTH + global.CELL_WIDTH,
+        var boardUnit  = gameSpecs.BORDER_WIDTH + gameSpecs.CELL_WIDTH,
             index      = 0,
         //X coordinate is inside of a cell border
-            boundTest1 = (coor[0] % boardUnit) <= global.BORDER_WIDTH,
+            boundTest1 = (coor[0] % boardUnit) <= gameSpecs.BORDER_WIDTH,
         //Y coordinate is inside of a cell border
-            boundTest2 = (coor[1] % boardUnit) <= global.BORDER_WIDTH,
+            boundTest2 = (coor[1] % boardUnit) <= gameSpecs.BORDER_WIDTH,
         //X and Y coordinates are greater than the top and left border widths
-            boundTest3 = coor[0] > global.BORDER_WIDTH && coor[1] > global.BORDER_WIDTH,
+            boundTest3 = coor[0] > gameSpecs.BORDER_WIDTH && coor[1] > gameSpecs.BORDER_WIDTH,
         //X and Y coordinates are less than the bottom and right border dimensions
-            boundTest4 = Math.floor(coor[0] / boardUnit) < global.BOARD_DIMENSION &&
-                Math.floor(coor[1] / boardUnit) < global.BOARD_DIMENSION;
+            boundTest4 = Math.floor(coor[0] / boardUnit) < gameSpecs.BOARD_DIMENSION &&
+                Math.floor(coor[1] / boardUnit) < gameSpecs.BOARD_DIMENSION;
 
         if ((boundTest1 !== boundTest2) && boundTest3 && boundTest4) {
             //Vertical wall y coordinate component
-            if (Math.floor(coor[1] / boardUnit) > 0 && coor[1] % boardUnit > global.BORDER_WIDTH) {
-                index += 2 * Math.floor(coor[1] / boardUnit) * (global.BOARD_DIMENSION - 1);
+            if (Math.floor(coor[1] / boardUnit) > 0 && coor[1] % boardUnit > gameSpecs.BORDER_WIDTH) {
+                index += 2 * Math.floor(coor[1] / boardUnit) * (gameSpecs.BOARD_DIMENSION - 1);
             }
             //Horizontal wall y coordinate component
             else if (Math.floor(coor[1] / boardUnit) > 0 ) {
-                index += 2 * (Math.floor(coor[1] / boardUnit) - 1) * (global.BOARD_DIMENSION - 1);
+                index += 2 * (Math.floor(coor[1] / boardUnit) - 1) * (gameSpecs.BOARD_DIMENSION - 1);
             }
-            if (Math.floor(coor[0] / boardUnit) < global.BOARD_DIMENSION) {
+            if (Math.floor(coor[0] / boardUnit) < gameSpecs.BOARD_DIMENSION) {
                 //Horizontal wall x coordinate component
-                if (coor[0] % boardUnit > global.BORDER_WIDTH) {
+                if (coor[0] % boardUnit > gameSpecs.BORDER_WIDTH) {
                     index += 2 * Math.floor(coor[0] / boardUnit);
                 }
                 //Vertical wall x coordinate component
@@ -40,13 +40,13 @@ var GUI = (function () {
             }
             //If X or Y coordinates are in the last board unit
             //use the index of the previous wall
-            if (Math.floor(coor[0] / boardUnit) === (global.BOARD_DIMENSION - 1) &&
-                coor[0] % boardUnit > global.BORDER_WIDTH) {
+            if (Math.floor(coor[0] / boardUnit) === (gameSpecs.BOARD_DIMENSION - 1) &&
+                coor[0] % boardUnit > gameSpecs.BORDER_WIDTH) {
                 index -= 2;
             }
-            else if (Math.floor(coor[1] / boardUnit) === (global.BOARD_DIMENSION - 1) &&
-                coor[1] % boardUnit > global.BORDER_WIDTH) {
-                index -= (global.BOARD_DIMENSION - 1) * 2;
+            else if (Math.floor(coor[1] / boardUnit) === (gameSpecs.BOARD_DIMENSION - 1) &&
+                coor[1] % boardUnit > gameSpecs.BORDER_WIDTH) {
+                index -= (gameSpecs.BOARD_DIMENSION - 1) * 2;
             }
         }
         else {
@@ -63,23 +63,23 @@ var GUI = (function () {
 
     function indexToWallCoordinates(idx) {
         var x, y,
-            boardUnit = global.BORDER_WIDTH + global.CELL_WIDTH;
+            boardUnit = gameSpecs.BORDER_WIDTH + gameSpecs.CELL_WIDTH;
         if (idx % 2 === 0) {
-            x = global.BORDER_WIDTH + ((idx % ((global.BOARD_DIMENSION - 1) * 2)) / 2) * boardUnit;
-            y = ( 1 + Math.floor(idx / ((global.BOARD_DIMENSION - 1) * 2))) * boardUnit;
+            x = gameSpecs.BORDER_WIDTH + ((idx % ((gameSpecs.BOARD_DIMENSION - 1) * 2)) / 2) * boardUnit;
+            y = ( 1 + Math.floor(idx / ((gameSpecs.BOARD_DIMENSION - 1) * 2))) * boardUnit;
         }
         else {
-            x = ((((idx % ((global.BOARD_DIMENSION - 1) * 2)) - 1) / 2) + 1) * boardUnit;
-            y = global.BORDER_WIDTH + Math.floor(idx / ((global.BOARD_DIMENSION - 1) * 2)) * boardUnit;
+            x = ((((idx % ((gameSpecs.BOARD_DIMENSION - 1) * 2)) - 1) / 2) + 1) * boardUnit;
+            y = gameSpecs.BORDER_WIDTH + Math.floor(idx / ((gameSpecs.BOARD_DIMENSION - 1) * 2)) * boardUnit;
         }
         return [x,y];
     }
 
     function positionToRectCellCoordinates(pos) {
-        var pos1 = pos % global.BOARD_DIMENSION ,
-            pos2 = Math.floor(pos / global.BOARD_DIMENSION),
-            x    = pos1 * global.CELL_WIDTH + (pos1 + 1) * global.BORDER_WIDTH,
-            y    = pos2 * global.CELL_WIDTH + (pos2 + 1) * global.BORDER_WIDTH;
+        var pos1 = pos % gameSpecs.BOARD_DIMENSION ,
+            pos2 = Math.floor(pos / gameSpecs.BOARD_DIMENSION),
+            x    = pos1 * gameSpecs.CELL_WIDTH + (pos1 + 1) * gameSpecs.BORDER_WIDTH,
+            y    = pos2 * gameSpecs.CELL_WIDTH + (pos2 + 1) * gameSpecs.BORDER_WIDTH;
         return [x,y];
     }
 
@@ -99,32 +99,32 @@ var GUI = (function () {
 
     function drawHud() {
         var x, y, i,
-            player1Walls = players.getPlayer1().getWallCount(),
-            player2Walls = players.getPlayer2().getWallCount();
+            player1Walls = players.getPlayer('player1').getWallCount(),
+            player2Walls = players.getPlayer('player2').getWallCount();
 
         module.hudContext.fillStyle = 'black';
-        module.hudContext.fillRect(0, 0, global.BOARD_SIZE / 3, global.BOARD_SIZE);
+        module.hudContext.fillRect(0, 0, gameSpecs.BOARD_SIZE / 3, gameSpecs.BOARD_SIZE);
 
         for (i = 0; i < player2Walls; i++) {
-            x = global.BORDER_WIDTH + (i % 5) * 2 * global.BORDER_WIDTH;
-            y = global.CELL_WIDTH * 2.5 * (0.3 + Math.floor(i / 5));
-            drawWall([x,y], module.hudContext, players.getPlayer2().getColor(), true);
+            x = gameSpecs.BORDER_WIDTH + (i % 5) * 2 * gameSpecs.BORDER_WIDTH;
+            y = gameSpecs.CELL_WIDTH * 2.5 * (0.3 + Math.floor(i / 5));
+            drawWall([x,y], module.hudContext, players.getPlayer('player2').getColor(), true);
         }
 
         for (i = 0; i < player1Walls; i++) {
-            x = global.BORDER_WIDTH + (i % 5) * 2 * global.BORDER_WIDTH;
-            y = global.CELL_WIDTH * 5 + global.CELL_WIDTH * 2.5 * (0.3 + Math.floor(i / 5));
-            drawWall([x,y], module.hudContext, players.getPlayer1().getColor(), true);
+            x = gameSpecs.BORDER_WIDTH + (i % 5) * 2 * gameSpecs.BORDER_WIDTH;
+            y = gameSpecs.CELL_WIDTH * 5 + gameSpecs.CELL_WIDTH * 2.5 * (0.3 + Math.floor(i / 5));
+            drawWall([x,y], module.hudContext, players.getPlayer('player1').getColor(), true);
         }
     }
 
     function drawWall(coor, ctx, fill, vertical) {
         ctx.fillStyle = fill;
         if (vertical === true) {
-            ctx.fillRect(coor[0], coor[1], global.BORDER_WIDTH, global.CELL_WIDTH * 2 + global.BORDER_WIDTH);
+            ctx.fillRect(coor[0], coor[1], gameSpecs.BORDER_WIDTH, gameSpecs.CELL_WIDTH * 2 + gameSpecs.BORDER_WIDTH);
         }
         else {
-            ctx.fillRect(coor[0], coor[1], global.CELL_WIDTH * 2 + global.BORDER_WIDTH, global.BORDER_WIDTH);
+            ctx.fillRect(coor[0], coor[1], gameSpecs.CELL_WIDTH * 2 + gameSpecs.BORDER_WIDTH, gameSpecs.BORDER_WIDTH);
         }
     }
 
@@ -145,17 +145,17 @@ var GUI = (function () {
 
         function drawCell(coor, fill) {
             module.boardContext.fillStyle = fill;
-            module.boardContext.fillRect(coor[0], coor[1], global.CELL_WIDTH, global.CELL_WIDTH);
+            module.boardContext.fillRect(coor[0], coor[1], gameSpecs.CELL_WIDTH, gameSpecs.CELL_WIDTH);
         }
 
         module.boardContext.fillStyle = 'black';
-        module.boardContext.fillRect(0, 0, global.BOARD_SIZE, global.BOARD_SIZE);
+        module.boardContext.fillRect(0, 0, gameSpecs.BOARD_SIZE, gameSpecs.BOARD_SIZE);
 
-        for (i = 0; i < global.BOARD_DIMENSION; i++) {
-            for (j = 0; j < global.BOARD_DIMENSION; j++) {
+        for (i = 0; i < gameSpecs.BOARD_DIMENSION; i++) {
+            for (j = 0; j < gameSpecs.BOARD_DIMENSION; j++) {
                 //Cell Coordinates
-                x = global.BORDER_WIDTH * (j + 1) + global.CELL_WIDTH * j;
-                y = global.BORDER_WIDTH * (i + 1) + global.CELL_WIDTH * i;
+                x = gameSpecs.BORDER_WIDTH * (j + 1) + gameSpecs.CELL_WIDTH * j;
+                y = gameSpecs.BORDER_WIDTH * (i + 1) + gameSpecs.CELL_WIDTH * i;
                 validMoveCoordinates = getValidMoveCoordinates();
                 //Draw highlighted cells
                 if (typeof validMoveCoordinates !== 'undefined') {
@@ -213,20 +213,20 @@ var GUI = (function () {
             //HUD Canvas (Wall count)
             module.hudCanvas              = document.createElement('canvas');
             module.hudCanvas.id           = 'hud';
-            module.hudCanvas.height       = global.BOARD_SIZE;
-            module.hudCanvas.width        = global.BOARD_SIZE / 3;
+            module.hudCanvas.height       = gameSpecs.BOARD_SIZE;
+            module.hudCanvas.width        = gameSpecs.BOARD_SIZE / 3;
             module.hudContext             = module.hudCanvas.getContext('2d');
             module.hudContext.fillStyle   = 'black';
-            module.hudContext.fillRect(0, 0, global.BOARD_SIZE / 3, global.BOARD_SIZE);
+            module.hudContext.fillRect(0, 0, gameSpecs.BOARD_SIZE / 3, gameSpecs.BOARD_SIZE);
             document.body.appendChild(module.hudCanvas);
             //Board Canvas
             module.boardCanvas            = document.createElement('canvas');
             module.boardCanvas.id         = 'board';
-            module.boardCanvas.height     = global.BOARD_SIZE;
-            module.boardCanvas.width      = global.BOARD_SIZE;
+            module.boardCanvas.height     = gameSpecs.BOARD_SIZE;
+            module.boardCanvas.width      = gameSpecs.BOARD_SIZE;
             module.boardContext           = module.boardCanvas.getContext('2d');
             module.boardContext.fillStyle = 'black';
-            module.boardContext.fillRect(0, 0, global.BOARD_SIZE, global.BOARD_SIZE);
+            module.boardContext.fillRect(0, 0, gameSpecs.BOARD_SIZE, gameSpecs.BOARD_SIZE);
             document.body.appendChild(module.boardCanvas);
             module.wallPreview = -1;
             update();
@@ -240,14 +240,14 @@ var GUI = (function () {
         },
         //Pixel coordinates on canvas return board position
         coordinatesToCellPosition: function coordinatesToCellPosition(coor) {
-            var boardUnit = global.BORDER_WIDTH + global.CELL_WIDTH,
-                position  = Math.floor(coor[0] / boardUnit) + Math.floor(coor[1] / boardUnit) * global.BOARD_DIMENSION,
+            var boardUnit = gameSpecs.BORDER_WIDTH + gameSpecs.CELL_WIDTH,
+                position  = Math.floor(coor[0] / boardUnit) + Math.floor(coor[1] / boardUnit) * gameSpecs.BOARD_DIMENSION,
                 boundTest,
                 i;
 
             for (i = 0; i < 2; i++) {
                 boundTest = coor[i] % boardUnit;
-                if (boundTest <= global.BORDER_WIDTH) {
+                if (boundTest <= gameSpecs.BORDER_WIDTH) {
                     return undefined;
                 }
             }
@@ -256,10 +256,10 @@ var GUI = (function () {
         coordinatesToWallIndex: coordinatesToWallIndex,
         //Returns center coordinates of cell
         positionToCellCoordinates: function positionToCellCoordinates(pos) {
-            var pos1 = pos % global.BOARD_DIMENSION,
-                pos2 = Math.floor(pos / global.BOARD_DIMENSION),
-                x = (pos1 + 0.5) * global.CELL_WIDTH + (pos1 + 1) * global.BORDER_WIDTH,
-                y = (pos2 + 0.5) * global.CELL_WIDTH + (pos2 + 1) * global.BORDER_WIDTH;
+            var pos1 = pos % gameSpecs.BOARD_DIMENSION,
+                pos2 = Math.floor(pos / gameSpecs.BOARD_DIMENSION),
+                x = (pos1 + 0.5) * gameSpecs.CELL_WIDTH + (pos1 + 1) * gameSpecs.BORDER_WIDTH,
+                y = (pos2 + 0.5) * gameSpecs.CELL_WIDTH + (pos2 + 1) * gameSpecs.BORDER_WIDTH;
             return [x,y];
         },
         getWallPreview: function getWallPreview() {

@@ -16,25 +16,30 @@ var players = (function () {
     }
 
     function getWinningRange(startPos) {
-        if (Math.floor(startPos / global.BOARD_DIMENSION) === 0) {
-            return [global.BOARD_DIMENSION * (global.BOARD_DIMENSION - 1), Math.pow(global.BOARD_DIMENSION, 2) - 1];
+        if (Math.floor(startPos / gameSpecs.BOARD_DIMENSION) === 0) {
+            return [gameSpecs.BOARD_DIMENSION * (gameSpecs.BOARD_DIMENSION - 1), Math.pow(gameSpecs.BOARD_DIMENSION, 2) - 1];
         }
         else {
-            return [0, global.BOARD_DIMENSION - 1];
+            return [0, gameSpecs.BOARD_DIMENSION - 1];
         }
     }
 
     //Basic player constructor
-    function Player(clr, idx, pos) {
+    function Player(clr, n, pos) {
         var my = {
-            index: idx,
+            name: n,
             color: clr,
             token: new Token(clr, this, pos),
             hasActed: false,
             wallCount: module.startingWalls
         };
 
+        this.getName = function getName() {
+            return my.name;
+        };
+
         this.getToken = function getToken() {
+            console.log('get token');
             return my.token;
         };
 
@@ -50,10 +55,6 @@ var players = (function () {
             return my.hasActed;
         };
 
-        this.getIndex = function getIndex() {
-            return my.index;
-        };
-
         this.getWallCount = function getWallCount() {
             return my.wallCount;
         };
@@ -63,11 +64,11 @@ var players = (function () {
         };
     }
 
-    function HumanPlayer(clr, idx, pos) {
+    function HumanPlayer(clr, n, pos) {
         Player.apply(this, arguments);
     }
 
-    function ComputerPlayer(clr, idx, pos) {
+    function ComputerPlayer(clr, n, pos) {
         Player.apply(this, arguments);
     }
 
@@ -81,7 +82,7 @@ var players = (function () {
             coors  = GUI.positionToCellCoordinates(my.position);
         my.x      = coors[0];
         my.y      = coors[1];
-        my.radius = global.CELL_WIDTH / 2 * 0.8;
+        my.radius = gameSpecs.CELL_WIDTH / 2 * 0.8;
 
         this.getX = function getX() {
             return my.x;
@@ -149,25 +150,16 @@ var players = (function () {
 
     //Return public methods
     return {
-        init: function init(p1, p2) {
-            module.player1 = playerType(p1, 'red', 0, global.BOT_START_POS);
-            module.player2 = playerType(p2, 'blue', 1, global.TOP_START_POS);
-
-            function playerType(type, color, idx, pos) {
-                if (type === 'human') {
-                    return new HumanPlayer(color, idx, pos);
-                }
-                else {
-                    return new ComputerPlayer(color, idx, pos);
-                }
-            }
+        init: function init() {
+            module.player1 = new HumanPlayer('red', 'player1', gameSpecs.BOT_START_POS);
+            module.player2 = new ComputerPlayer('blue', 'player2', gameSpecs.TOP_START_POS);
             module.currentPlayer = module.player1;
         },
-        getPlayer1: function getPlayer1() {
-            return module.player1;
+        getPlayer: function getPlayer(name) {
+            return module[name];
         },
-        getPlayer2: function getPlayer2() {
-            return module.player2;
+        getToken: function getToken(name) {
+            return module[name].getToken();
         },
         getTokens: getTokens,
         getCurrentPlayer: function getCurrentPlayer() {
@@ -176,8 +168,7 @@ var players = (function () {
         nextPlayer: function nextPlayer() {
             module.currentPlayer.act();
             module.currentPlayer = module.currentPlayer === module.player1 ? module.player2 : module.player1;
-        },
-        getWinningRange: getWinningRange
+        }
     };
 
 })();

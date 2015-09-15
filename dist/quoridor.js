@@ -1,97 +1,36 @@
 /**
- * Created by ben on 8/21/15.
+ * Created by ben on 9/7/15.
  */
+//When client makes first change to root node, send current board to server
+//and use it as the root node for subsequent MCTS iterations
+//Repeat this at the end of each turn
+//At the beginning of AI turn
+//1. After 10 seconds of thinking time, check server for value of all child(1) nodes and do most valuable move
+
+//
 var ai = (function () {
     'use strict';
+    var socket = io('http://localhost:9000');
 
-    var module = {},
-        boardValuesHash,
-        processStatus = function (response, err) {
-            console.log(response);
-            // status "0" to handle local files fetching (e.g. Cordova/Phonegap etc.)
-            if (response.status === 200 || response.status === 0) {
-                return Promise.resolve(response);
-            } else {
-                return Promise.reject(err);
+    function getMove(brdStr) {
+
+    }
+
+    function getData() {
+        socket.emit('getData', board.getBoardString(), function (data) {
+            var key;
+            for (key in data) {
+                if (data.hasOwnProperty(key)) {
+                    my[key] = data[key];
+                }
             }
-        };
-
-    getTreeHash();
-
-    function getTreeHash() {
-        var myInit = { method: 'GET',
-            mode: 'cors',
-            cache: 'default' };
-
-        window.fetch('treehash', myInit)
-            .then(processStatus)
-            .then(function (res) {
-                return res.json();
-            })
-            .then(function (hash) {
-                boardValuesHash = new HashMap(hash);
-            });
+        });
     }
 
-    function TreeNode(brdStr) {
-        var boardString = brdStr,
-            children = [],
-            parent,
-            simulations,
-            netWins;
 
-        this.getValue = function getValue() {
-
-        };
-
-    }
-
-    function Tree() {
-
-    }
-
-    function HashMap(itms) {
-        var items;
-
-        if (typeof itms === 'object') {
-            items = JSON.parse(JSON.stringify(itms));
-        }
-        else {
-            items = {
-                totalSimulations: 0
-            };
-        }
-
-        this.getItem = function getItem(key) {
-            return items[key];
-        };
-
-        this.setItem = function setItem(key, value) {
-            var temp;
-            if (typeof items[key] !== 'undefined') {
-                items[key] = value;
-            }
-            else {
-                temp = items[key];
-                items[key] = value;
-            }
-            return temp;
-        };
-
-        this.hasItem = function hasItem(key) {
-            return typeof items[key] !== 'undefined';
-        };
-    }
-
-    //Monte Carlo Tree Search algorithm
-    function MCTS() {
-        var totalSimulations,
-            //Large values give uniform search, small values prioritize node value
-            exploreC,
-            bestNodeValue;
-
-
-    }
+    return {
+        getMove: getMove
+    };
 
 })();
 /**
@@ -99,6 +38,7 @@ var ai = (function () {
 */
 //functions to keep track of last move, and undo
 //create abstract board for simulations?
+//how to share board functions with server?
 var board;
 
 function boardConstructor(data) {
@@ -109,9 +49,11 @@ function boardConstructor(data) {
         var key;
         my.placedWalls = [];
         my.validMoves = [];
-        for (key in data) {
-            if (data.hasOwnProperty(key)) {
-                my[key] = data[key];
+        if (data) {
+            for (key in data) {
+                if (data.hasOwnProperty(key)) {
+                    my[key] = data[key];
+                }
             }
         }
     }
@@ -138,16 +80,16 @@ function boardConstructor(data) {
         switch (direction) {
             //North is valid if not on top edge
             case 0:
-                return (Math.floor(pos1 / global.BOARD_DIMENSION) > 0);
+                return (Math.floor(pos1 / gameSpecs.BOARD_DIMENSION) > 0);
             //East is valid if not on right edge
             case 1:
-                return ((pos1 % global.BOARD_DIMENSION) < 8);
+                return ((pos1 % gameSpecs.BOARD_DIMENSION) < 8);
             //South
             case 2:
-                return (Math.floor(pos1 / global.BOARD_DIMENSION) < 8);
+                return (Math.floor(pos1 / gameSpecs.BOARD_DIMENSION) < 8);
             //West
             case 3:
-                return ((pos1 % global.BOARD_DIMENSION) > 0);
+                return ((pos1 % gameSpecs.BOARD_DIMENSION) > 0);
             default:
                 return false;
         }
@@ -164,10 +106,10 @@ function boardConstructor(data) {
                 wallIndex + 2,
                 wallIndex - 2
             ];
-            if (wallIndex % ((global.BOARD_DIMENSION - 1) * 2) === (((global.BOARD_DIMENSION - 1) * 2) - 2)) {
+            if (wallIndex % ((gameSpecs.BOARD_DIMENSION - 1) * 2) === (((gameSpecs.BOARD_DIMENSION - 1) * 2) - 2)) {
                 conflictWalls.splice(2,1);
             }
-            if (wallIndex % ((global.BOARD_DIMENSION - 1) * 2) === 0) {
+            if (wallIndex % ((gameSpecs.BOARD_DIMENSION - 1) * 2) === 0) {
                 conflictWalls.splice(3,1);
             }
         }
@@ -175,8 +117,8 @@ function boardConstructor(data) {
             conflictWalls = [
                 wallIndex,
                 wallIndex - 1,
-                wallIndex - (global.BOARD_DIMENSION - 1) * 2,
-                wallIndex + (global.BOARD_DIMENSION - 1) * 2
+                wallIndex - (gameSpecs.BOARD_DIMENSION - 1) * 2,
+                wallIndex + (gameSpecs.BOARD_DIMENSION - 1) * 2
             ];
         }
 
@@ -206,12 +148,7 @@ function boardConstructor(data) {
     function tokensHavePaths(wallIndex) {
         var i, tokens;
 
-        if (data.simulated !== false) {
-            tokens = [data.token1, data.token2];
-        }
-        else {
-            tokens = players.getTokens();
-        }
+        tokens = players.getTokens();
 
         for (i = 0; i < tokens.length; i++) {
             if (!tokenHasPathToEnd(tokens[i], wallIndex)) {
@@ -226,7 +163,7 @@ function boardConstructor(data) {
         var i, node, moves,
             winRange          = token.getWinRange(),
             positionQueue     = [token.getPosition()],
-            examinedPositions = new Array(Math.pow(global.BOARD_DIMENSION, 2) - 1)
+            examinedPositions = new Array(Math.pow(gameSpecs.BOARD_DIMENSION, 2) - 1)
                 .join('0').split('').map(parseFloat);
 
         if (includeWall > -1) {
@@ -254,12 +191,7 @@ function boardConstructor(data) {
     function getTokenAtPosition(pos) {
         var tokens, i;
 
-        if (data.simulated) {
-            tokens = [data.token1, data.token2];
-        }
-        else {
-            tokens = players.getTokens();
-        }
+        tokens = players.getTokens();
 
         for (i = 0; i < tokens.length; i++) {
             if (pos === tokens[i].getPosition()) {
@@ -269,7 +201,7 @@ function boardConstructor(data) {
         return undefined;
     }
 
-    function findValidMoves(posIndex, ignoreJump, discardMoves) {
+    function findValidMoves(posIndex, ignoreJump, discardMoves, ignoreIdentity) {
         var moves = getMoveSet(posIndex),
             walls = getAdjacentWalls(posIndex, false),
             i, j, k, jumpSpace,
@@ -322,6 +254,9 @@ function boardConstructor(data) {
                     }
                 }
             }
+        }
+        if (ignoreIdentity) {
+            moves.splice(moves.indexOf(posIndex), 1);
         }
         if (discardMoves === true) {
             return moves;
@@ -402,9 +337,9 @@ function boardConstructor(data) {
     //0:North 1:East 2:South 3:West
     function getMovePosition(pos, dir) {
         var moves = [
-            (pos - global.BOARD_DIMENSION),
+            (pos - gameSpecs.BOARD_DIMENSION),
             (pos + 1),
-            (pos + global.BOARD_DIMENSION),
+            (pos + gameSpecs.BOARD_DIMENSION),
             (pos - 1)
         ];
         if (moveIsOnBoard(pos, moves[dir])) {
@@ -480,9 +415,9 @@ function boardConstructor(data) {
     //0:North 1:East 2:South 3:West 4:Identity
     function getUnboundedMoveSet(pos) {
         return [
-            (pos - global.BOARD_DIMENSION),
+            (pos - gameSpecs.BOARD_DIMENSION),
             (pos + 1),
-            (pos + global.BOARD_DIMENSION),
+            (pos + gameSpecs.BOARD_DIMENSION),
             (pos - 1),
             pos
         ];
@@ -494,8 +429,8 @@ function boardConstructor(data) {
             walls = [];
 
         //Bottom right wall vertex
-        wall = (pos % global.BOARD_DIMENSION) * 2 +
-            Math.floor(pos / global.BOARD_DIMENSION) * (global.BOARD_DIMENSION - 1) * 2;
+        wall = (pos % gameSpecs.BOARD_DIMENSION) * 2 +
+            Math.floor(pos / gameSpecs.BOARD_DIMENSION) * (gameSpecs.BOARD_DIMENSION - 1) * 2;
         walls.push(wall, (wall + 1));
 
         //Bottom left
@@ -503,7 +438,7 @@ function boardConstructor(data) {
         walls.push(wall, (wall + 1));
 
         //Top left
-        wall -= (global.BOARD_DIMENSION - 1) * 2;
+        wall -= (gameSpecs.BOARD_DIMENSION - 1) * 2;
         walls.push(wall, (wall + 1));
 
         //Top right
@@ -520,7 +455,23 @@ function boardConstructor(data) {
             }
         },
         getBoardString: function getBoardString() {
-            return JSON.stringify(my);
+            return JSON.stringify({
+                dimension: gameSpecs.BOARD_DIMENSION,
+                totalWalls: 128,
+                placedWalls: my.placedWalls,
+                validMoves: findValidMoves(players.getCurrentPlayer().getToken().getPosition(), false, true, true),
+                currentPlayer: players.getCurrentPlayer().getName(),
+                player1: {
+                    position: players.getToken('player1').getPosition(),
+                    winRange: players.getToken('player1').getWinRange(),
+                    wallCount: players.getPlayer('player1').getWallCount()
+                },
+                player2: {
+                    position: players.getToken('player2').getPosition(),
+                    winRange: players.getToken('player2').getWinRange(),
+                    wallCount: players.getPlayer('player2').getWallCount()
+                }
+            });
         },
         getValidMoves: function getValidMoves() {
             return my.validMoves;
@@ -543,30 +494,30 @@ var GUI = (function () {
     var module = {};
 
     function coordinatesToWallIndex(coor) {
-        var boardUnit  = global.BORDER_WIDTH + global.CELL_WIDTH,
+        var boardUnit  = gameSpecs.BORDER_WIDTH + gameSpecs.CELL_WIDTH,
             index      = 0,
         //X coordinate is inside of a cell border
-            boundTest1 = (coor[0] % boardUnit) <= global.BORDER_WIDTH,
+            boundTest1 = (coor[0] % boardUnit) <= gameSpecs.BORDER_WIDTH,
         //Y coordinate is inside of a cell border
-            boundTest2 = (coor[1] % boardUnit) <= global.BORDER_WIDTH,
+            boundTest2 = (coor[1] % boardUnit) <= gameSpecs.BORDER_WIDTH,
         //X and Y coordinates are greater than the top and left border widths
-            boundTest3 = coor[0] > global.BORDER_WIDTH && coor[1] > global.BORDER_WIDTH,
+            boundTest3 = coor[0] > gameSpecs.BORDER_WIDTH && coor[1] > gameSpecs.BORDER_WIDTH,
         //X and Y coordinates are less than the bottom and right border dimensions
-            boundTest4 = Math.floor(coor[0] / boardUnit) < global.BOARD_DIMENSION &&
-                Math.floor(coor[1] / boardUnit) < global.BOARD_DIMENSION;
+            boundTest4 = Math.floor(coor[0] / boardUnit) < gameSpecs.BOARD_DIMENSION &&
+                Math.floor(coor[1] / boardUnit) < gameSpecs.BOARD_DIMENSION;
 
         if ((boundTest1 !== boundTest2) && boundTest3 && boundTest4) {
             //Vertical wall y coordinate component
-            if (Math.floor(coor[1] / boardUnit) > 0 && coor[1] % boardUnit > global.BORDER_WIDTH) {
-                index += 2 * Math.floor(coor[1] / boardUnit) * (global.BOARD_DIMENSION - 1);
+            if (Math.floor(coor[1] / boardUnit) > 0 && coor[1] % boardUnit > gameSpecs.BORDER_WIDTH) {
+                index += 2 * Math.floor(coor[1] / boardUnit) * (gameSpecs.BOARD_DIMENSION - 1);
             }
             //Horizontal wall y coordinate component
             else if (Math.floor(coor[1] / boardUnit) > 0 ) {
-                index += 2 * (Math.floor(coor[1] / boardUnit) - 1) * (global.BOARD_DIMENSION - 1);
+                index += 2 * (Math.floor(coor[1] / boardUnit) - 1) * (gameSpecs.BOARD_DIMENSION - 1);
             }
-            if (Math.floor(coor[0] / boardUnit) < global.BOARD_DIMENSION) {
+            if (Math.floor(coor[0] / boardUnit) < gameSpecs.BOARD_DIMENSION) {
                 //Horizontal wall x coordinate component
-                if (coor[0] % boardUnit > global.BORDER_WIDTH) {
+                if (coor[0] % boardUnit > gameSpecs.BORDER_WIDTH) {
                     index += 2 * Math.floor(coor[0] / boardUnit);
                 }
                 //Vertical wall x coordinate component
@@ -576,13 +527,13 @@ var GUI = (function () {
             }
             //If X or Y coordinates are in the last board unit
             //use the index of the previous wall
-            if (Math.floor(coor[0] / boardUnit) === (global.BOARD_DIMENSION - 1) &&
-                coor[0] % boardUnit > global.BORDER_WIDTH) {
+            if (Math.floor(coor[0] / boardUnit) === (gameSpecs.BOARD_DIMENSION - 1) &&
+                coor[0] % boardUnit > gameSpecs.BORDER_WIDTH) {
                 index -= 2;
             }
-            else if (Math.floor(coor[1] / boardUnit) === (global.BOARD_DIMENSION - 1) &&
-                coor[1] % boardUnit > global.BORDER_WIDTH) {
-                index -= (global.BOARD_DIMENSION - 1) * 2;
+            else if (Math.floor(coor[1] / boardUnit) === (gameSpecs.BOARD_DIMENSION - 1) &&
+                coor[1] % boardUnit > gameSpecs.BORDER_WIDTH) {
+                index -= (gameSpecs.BOARD_DIMENSION - 1) * 2;
             }
         }
         else {
@@ -599,23 +550,23 @@ var GUI = (function () {
 
     function indexToWallCoordinates(idx) {
         var x, y,
-            boardUnit = global.BORDER_WIDTH + global.CELL_WIDTH;
+            boardUnit = gameSpecs.BORDER_WIDTH + gameSpecs.CELL_WIDTH;
         if (idx % 2 === 0) {
-            x = global.BORDER_WIDTH + ((idx % ((global.BOARD_DIMENSION - 1) * 2)) / 2) * boardUnit;
-            y = ( 1 + Math.floor(idx / ((global.BOARD_DIMENSION - 1) * 2))) * boardUnit;
+            x = gameSpecs.BORDER_WIDTH + ((idx % ((gameSpecs.BOARD_DIMENSION - 1) * 2)) / 2) * boardUnit;
+            y = ( 1 + Math.floor(idx / ((gameSpecs.BOARD_DIMENSION - 1) * 2))) * boardUnit;
         }
         else {
-            x = ((((idx % ((global.BOARD_DIMENSION - 1) * 2)) - 1) / 2) + 1) * boardUnit;
-            y = global.BORDER_WIDTH + Math.floor(idx / ((global.BOARD_DIMENSION - 1) * 2)) * boardUnit;
+            x = ((((idx % ((gameSpecs.BOARD_DIMENSION - 1) * 2)) - 1) / 2) + 1) * boardUnit;
+            y = gameSpecs.BORDER_WIDTH + Math.floor(idx / ((gameSpecs.BOARD_DIMENSION - 1) * 2)) * boardUnit;
         }
         return [x,y];
     }
 
     function positionToRectCellCoordinates(pos) {
-        var pos1 = pos % global.BOARD_DIMENSION ,
-            pos2 = Math.floor(pos / global.BOARD_DIMENSION),
-            x    = pos1 * global.CELL_WIDTH + (pos1 + 1) * global.BORDER_WIDTH,
-            y    = pos2 * global.CELL_WIDTH + (pos2 + 1) * global.BORDER_WIDTH;
+        var pos1 = pos % gameSpecs.BOARD_DIMENSION ,
+            pos2 = Math.floor(pos / gameSpecs.BOARD_DIMENSION),
+            x    = pos1 * gameSpecs.CELL_WIDTH + (pos1 + 1) * gameSpecs.BORDER_WIDTH,
+            y    = pos2 * gameSpecs.CELL_WIDTH + (pos2 + 1) * gameSpecs.BORDER_WIDTH;
         return [x,y];
     }
 
@@ -635,32 +586,32 @@ var GUI = (function () {
 
     function drawHud() {
         var x, y, i,
-            player1Walls = players.getPlayer1().getWallCount(),
-            player2Walls = players.getPlayer2().getWallCount();
+            player1Walls = players.getPlayer('player1').getWallCount(),
+            player2Walls = players.getPlayer('player2').getWallCount();
 
         module.hudContext.fillStyle = 'black';
-        module.hudContext.fillRect(0, 0, global.BOARD_SIZE / 3, global.BOARD_SIZE);
+        module.hudContext.fillRect(0, 0, gameSpecs.BOARD_SIZE / 3, gameSpecs.BOARD_SIZE);
 
         for (i = 0; i < player2Walls; i++) {
-            x = global.BORDER_WIDTH + (i % 5) * 2 * global.BORDER_WIDTH;
-            y = global.CELL_WIDTH * 2.5 * (0.3 + Math.floor(i / 5));
-            drawWall([x,y], module.hudContext, players.getPlayer2().getColor(), true);
+            x = gameSpecs.BORDER_WIDTH + (i % 5) * 2 * gameSpecs.BORDER_WIDTH;
+            y = gameSpecs.CELL_WIDTH * 2.5 * (0.3 + Math.floor(i / 5));
+            drawWall([x,y], module.hudContext, players.getPlayer('player2').getColor(), true);
         }
 
         for (i = 0; i < player1Walls; i++) {
-            x = global.BORDER_WIDTH + (i % 5) * 2 * global.BORDER_WIDTH;
-            y = global.CELL_WIDTH * 5 + global.CELL_WIDTH * 2.5 * (0.3 + Math.floor(i / 5));
-            drawWall([x,y], module.hudContext, players.getPlayer1().getColor(), true);
+            x = gameSpecs.BORDER_WIDTH + (i % 5) * 2 * gameSpecs.BORDER_WIDTH;
+            y = gameSpecs.CELL_WIDTH * 5 + gameSpecs.CELL_WIDTH * 2.5 * (0.3 + Math.floor(i / 5));
+            drawWall([x,y], module.hudContext, players.getPlayer('player1').getColor(), true);
         }
     }
 
     function drawWall(coor, ctx, fill, vertical) {
         ctx.fillStyle = fill;
         if (vertical === true) {
-            ctx.fillRect(coor[0], coor[1], global.BORDER_WIDTH, global.CELL_WIDTH * 2 + global.BORDER_WIDTH);
+            ctx.fillRect(coor[0], coor[1], gameSpecs.BORDER_WIDTH, gameSpecs.CELL_WIDTH * 2 + gameSpecs.BORDER_WIDTH);
         }
         else {
-            ctx.fillRect(coor[0], coor[1], global.CELL_WIDTH * 2 + global.BORDER_WIDTH, global.BORDER_WIDTH);
+            ctx.fillRect(coor[0], coor[1], gameSpecs.CELL_WIDTH * 2 + gameSpecs.BORDER_WIDTH, gameSpecs.BORDER_WIDTH);
         }
     }
 
@@ -681,17 +632,17 @@ var GUI = (function () {
 
         function drawCell(coor, fill) {
             module.boardContext.fillStyle = fill;
-            module.boardContext.fillRect(coor[0], coor[1], global.CELL_WIDTH, global.CELL_WIDTH);
+            module.boardContext.fillRect(coor[0], coor[1], gameSpecs.CELL_WIDTH, gameSpecs.CELL_WIDTH);
         }
 
         module.boardContext.fillStyle = 'black';
-        module.boardContext.fillRect(0, 0, global.BOARD_SIZE, global.BOARD_SIZE);
+        module.boardContext.fillRect(0, 0, gameSpecs.BOARD_SIZE, gameSpecs.BOARD_SIZE);
 
-        for (i = 0; i < global.BOARD_DIMENSION; i++) {
-            for (j = 0; j < global.BOARD_DIMENSION; j++) {
+        for (i = 0; i < gameSpecs.BOARD_DIMENSION; i++) {
+            for (j = 0; j < gameSpecs.BOARD_DIMENSION; j++) {
                 //Cell Coordinates
-                x = global.BORDER_WIDTH * (j + 1) + global.CELL_WIDTH * j;
-                y = global.BORDER_WIDTH * (i + 1) + global.CELL_WIDTH * i;
+                x = gameSpecs.BORDER_WIDTH * (j + 1) + gameSpecs.CELL_WIDTH * j;
+                y = gameSpecs.BORDER_WIDTH * (i + 1) + gameSpecs.CELL_WIDTH * i;
                 validMoveCoordinates = getValidMoveCoordinates();
                 //Draw highlighted cells
                 if (typeof validMoveCoordinates !== 'undefined') {
@@ -749,20 +700,20 @@ var GUI = (function () {
             //HUD Canvas (Wall count)
             module.hudCanvas              = document.createElement('canvas');
             module.hudCanvas.id           = 'hud';
-            module.hudCanvas.height       = global.BOARD_SIZE;
-            module.hudCanvas.width        = global.BOARD_SIZE / 3;
+            module.hudCanvas.height       = gameSpecs.BOARD_SIZE;
+            module.hudCanvas.width        = gameSpecs.BOARD_SIZE / 3;
             module.hudContext             = module.hudCanvas.getContext('2d');
             module.hudContext.fillStyle   = 'black';
-            module.hudContext.fillRect(0, 0, global.BOARD_SIZE / 3, global.BOARD_SIZE);
+            module.hudContext.fillRect(0, 0, gameSpecs.BOARD_SIZE / 3, gameSpecs.BOARD_SIZE);
             document.body.appendChild(module.hudCanvas);
             //Board Canvas
             module.boardCanvas            = document.createElement('canvas');
             module.boardCanvas.id         = 'board';
-            module.boardCanvas.height     = global.BOARD_SIZE;
-            module.boardCanvas.width      = global.BOARD_SIZE;
+            module.boardCanvas.height     = gameSpecs.BOARD_SIZE;
+            module.boardCanvas.width      = gameSpecs.BOARD_SIZE;
             module.boardContext           = module.boardCanvas.getContext('2d');
             module.boardContext.fillStyle = 'black';
-            module.boardContext.fillRect(0, 0, global.BOARD_SIZE, global.BOARD_SIZE);
+            module.boardContext.fillRect(0, 0, gameSpecs.BOARD_SIZE, gameSpecs.BOARD_SIZE);
             document.body.appendChild(module.boardCanvas);
             module.wallPreview = -1;
             update();
@@ -776,14 +727,14 @@ var GUI = (function () {
         },
         //Pixel coordinates on canvas return board position
         coordinatesToCellPosition: function coordinatesToCellPosition(coor) {
-            var boardUnit = global.BORDER_WIDTH + global.CELL_WIDTH,
-                position  = Math.floor(coor[0] / boardUnit) + Math.floor(coor[1] / boardUnit) * global.BOARD_DIMENSION,
+            var boardUnit = gameSpecs.BORDER_WIDTH + gameSpecs.CELL_WIDTH,
+                position  = Math.floor(coor[0] / boardUnit) + Math.floor(coor[1] / boardUnit) * gameSpecs.BOARD_DIMENSION,
                 boundTest,
                 i;
 
             for (i = 0; i < 2; i++) {
                 boundTest = coor[i] % boardUnit;
-                if (boundTest <= global.BORDER_WIDTH) {
+                if (boundTest <= gameSpecs.BORDER_WIDTH) {
                     return undefined;
                 }
             }
@@ -792,10 +743,10 @@ var GUI = (function () {
         coordinatesToWallIndex: coordinatesToWallIndex,
         //Returns center coordinates of cell
         positionToCellCoordinates: function positionToCellCoordinates(pos) {
-            var pos1 = pos % global.BOARD_DIMENSION,
-                pos2 = Math.floor(pos / global.BOARD_DIMENSION),
-                x = (pos1 + 0.5) * global.CELL_WIDTH + (pos1 + 1) * global.BORDER_WIDTH,
-                y = (pos2 + 0.5) * global.CELL_WIDTH + (pos2 + 1) * global.BORDER_WIDTH;
+            var pos1 = pos % gameSpecs.BOARD_DIMENSION,
+                pos2 = Math.floor(pos / gameSpecs.BOARD_DIMENSION),
+                x = (pos1 + 0.5) * gameSpecs.CELL_WIDTH + (pos1 + 1) * gameSpecs.BORDER_WIDTH,
+                y = (pos2 + 0.5) * gameSpecs.CELL_WIDTH + (pos2 + 1) * gameSpecs.BORDER_WIDTH;
             return [x,y];
         },
         getWallPreview: function getWallPreview() {
@@ -819,19 +770,19 @@ var GUI = (function () {
  * Created by Ben on 8/18/2015.
  */
 
-var global = {};
+var gameSpecs = {};
 
 (function () {
     'use strict';
-    //Set constant global board properties
-    global.BOARD_DIMENSION = 9;
-    global.CELL_WIDTH = 55;
-    global.BORDER_WIDTH = global.CELL_WIDTH / 5;
-    global.BOARD_SIZE = global.CELL_WIDTH * global.BOARD_DIMENSION +
-            global.BORDER_WIDTH * (global.BOARD_DIMENSION + 1);
-    global.TOP_START_POS = Math.floor(global.BOARD_DIMENSION / 2);
-    global.BOT_START_POS = Math.floor(global.BOARD_DIMENSION / 2) +
-        global.BOARD_DIMENSION * (global.BOARD_DIMENSION - 1);
+    //Set constant gameSpecs board properties
+    gameSpecs.BOARD_DIMENSION = 9;
+    gameSpecs.CELL_WIDTH = 55;
+    gameSpecs.BORDER_WIDTH = gameSpecs.CELL_WIDTH / 5;
+    gameSpecs.BOARD_SIZE = gameSpecs.CELL_WIDTH * gameSpecs.BOARD_DIMENSION +
+            gameSpecs.BORDER_WIDTH * (gameSpecs.BOARD_DIMENSION + 1);
+    gameSpecs.TOP_START_POS = Math.floor(gameSpecs.BOARD_DIMENSION / 2);
+    gameSpecs.BOT_START_POS = Math.floor(gameSpecs.BOARD_DIMENSION / 2) +
+        gameSpecs.BOARD_DIMENSION * (gameSpecs.BOARD_DIMENSION - 1);
 
     function fixMouse(e) {
         var rect = GUI.getBoardCanvas().getBoundingClientRect();
@@ -844,9 +795,10 @@ var global = {};
         var selectedToken, offsetY, offsetX;
 
         //Game initializers
-        board = boardConstructor({simulated: false});
-        players.init('human','ai');
+        board = boardConstructor();
+        players.init();
         GUI.init();
+        console.log("board: "+board.getBoardString());
 
         //Click event handler
         GUI.getBoardCanvas().addEventListener('mousedown', function (e) {
@@ -931,25 +883,30 @@ var players = (function () {
     }
 
     function getWinningRange(startPos) {
-        if (Math.floor(startPos / global.BOARD_DIMENSION) === 0) {
-            return [global.BOARD_DIMENSION * (global.BOARD_DIMENSION - 1), Math.pow(global.BOARD_DIMENSION, 2) - 1];
+        if (Math.floor(startPos / gameSpecs.BOARD_DIMENSION) === 0) {
+            return [gameSpecs.BOARD_DIMENSION * (gameSpecs.BOARD_DIMENSION - 1), Math.pow(gameSpecs.BOARD_DIMENSION, 2) - 1];
         }
         else {
-            return [0, global.BOARD_DIMENSION - 1];
+            return [0, gameSpecs.BOARD_DIMENSION - 1];
         }
     }
 
     //Basic player constructor
-    function Player(clr, idx, pos) {
+    function Player(clr, n, pos) {
         var my = {
-            index: idx,
+            name: n,
             color: clr,
             token: new Token(clr, this, pos),
             hasActed: false,
             wallCount: module.startingWalls
         };
 
+        this.getName = function getName() {
+            return my.name;
+        };
+
         this.getToken = function getToken() {
+            console.log('get token');
             return my.token;
         };
 
@@ -965,10 +922,6 @@ var players = (function () {
             return my.hasActed;
         };
 
-        this.getIndex = function getIndex() {
-            return my.index;
-        };
-
         this.getWallCount = function getWallCount() {
             return my.wallCount;
         };
@@ -978,11 +931,11 @@ var players = (function () {
         };
     }
 
-    function HumanPlayer(clr, idx, pos) {
+    function HumanPlayer(clr, n, pos) {
         Player.apply(this, arguments);
     }
 
-    function ComputerPlayer(clr, idx, pos) {
+    function ComputerPlayer(clr, n, pos) {
         Player.apply(this, arguments);
     }
 
@@ -996,7 +949,7 @@ var players = (function () {
             coors  = GUI.positionToCellCoordinates(my.position);
         my.x      = coors[0];
         my.y      = coors[1];
-        my.radius = global.CELL_WIDTH / 2 * 0.8;
+        my.radius = gameSpecs.CELL_WIDTH / 2 * 0.8;
 
         this.getX = function getX() {
             return my.x;
@@ -1064,25 +1017,16 @@ var players = (function () {
 
     //Return public methods
     return {
-        init: function init(p1, p2) {
-            module.player1 = playerType(p1, 'red', 0, global.BOT_START_POS);
-            module.player2 = playerType(p2, 'blue', 1, global.TOP_START_POS);
-
-            function playerType(type, color, idx, pos) {
-                if (type === 'human') {
-                    return new HumanPlayer(color, idx, pos);
-                }
-                else {
-                    return new ComputerPlayer(color, idx, pos);
-                }
-            }
+        init: function init() {
+            module.player1 = new HumanPlayer('red', 'player1', gameSpecs.BOT_START_POS);
+            module.player2 = new ComputerPlayer('blue', 'player2', gameSpecs.TOP_START_POS);
             module.currentPlayer = module.player1;
         },
-        getPlayer1: function getPlayer1() {
-            return module.player1;
+        getPlayer: function getPlayer(name) {
+            return module[name];
         },
-        getPlayer2: function getPlayer2() {
-            return module.player2;
+        getToken: function getToken(name) {
+            return module[name].getToken();
         },
         getTokens: getTokens,
         getCurrentPlayer: function getCurrentPlayer() {
